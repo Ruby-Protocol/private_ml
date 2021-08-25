@@ -27,11 +27,11 @@ lazy_static! {
     // The presentation in rom::CURVE_ORDER seems a little different because it only uses 58 bits in each CHUNK (set in big::BASEBITS),
     // hence there is some bit shifting, but the number is the same.
     pub static ref CURVE_ORDER: BigNum = BigNum::new_ints(&rom::CURVE_ORDER);
-    static ref buf: [u8; MB] = {
+    static ref BUF: [u8; MB] = {
         let mut m = [0; MB]; 
         CURVE_ORDER.tobytes(&mut m);
         m
     };
-    pub static ref MODULUS: BigInt = BigInt::from_bytes_be(Sign::Plus, &buf[..]);
-    pub static ref DBigZero: DBigNum = DBigNum::new();
+    pub static ref MODULUS: BigInt = BigInt::from_bytes_be(Sign::Plus, &BUF[..]);
+    pub static ref DBIG_ZERO: DBigNum = DBigNum::new();
 }

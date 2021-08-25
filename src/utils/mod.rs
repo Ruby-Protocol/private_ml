@@ -1,14 +1,13 @@
 pub mod rand_utils;
 
-use miracl_core::rand::{RAND, RAND_impl};
 use miracl_core::hash256::HASH256;
 use num_bigint::{BigInt, Sign};
 use std::collections::HashMap;
 use num_traits::Num;
-use crate::rand::RngCore;
-use miracl_core::bls12381::pair;
+use crate::num_traits::Zero;
 
 use crate::define::{BigNum, G1, G2, GT, CURVE_ORDER, MODULUS};
+use crate::math::matrix::{BigIntMatrix};
 
 //pub fn get_rng() -> impl RAND {
     //let mut seed: [u8; 100] = [0; 100];
@@ -51,7 +50,7 @@ pub fn hash_to_g2(data: &str) -> G2 {
 
 pub fn reduce(x: &BigInt, m: &BigInt) -> BigInt {
     let mut y = x % m;
-    if (y.sign() == Sign::Minus) {
+    if y.sign() == Sign::Minus {
         y = y + m;
     }
     y
@@ -125,42 +124,96 @@ pub fn baby_step_giant_step(h: &GT, g: &GT, bound: &BigNum) -> Option<BigInt> {
     None
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub fn baby_step_giant_step_g1(h: &G1, g: &G1, bound: &BigNum) -> Option<BigInt> {
+    let mut table = HashMap::new();
+    let pow_zero = G1::new();
+    println!("{:?}", h);
+    println!("{:?}", pow_zero);
+    if pow_zero.equals(&h) {
+        return Some(BigInt::from(0));
+    }
 
-    #[test]
-    fn test_baby_step_giant_step() {
-        let g1 = G1::generator();
-        let g2 = G2::generator();
+    let b = BigInt::from_str_radix(&bound.tostring(), 16).unwrap();
+    let b_sqrt = b.sqrt();
+    let temp: BigInt = b_sqrt.add(1);
+    let m = BigNum::fromstring(temp.to_str_radix(16));
 
-        let mut g = pair::ate(&g2, &g1);
-        g = pair::fexp(&g);
+    // precompute the table
+    let (mut x, mut z) = (G1::new(), g.clone());
+    let mut i = BigNum::new_int(0);
+    while BigNum::comp(&i, &m) <= 0 {
+        table.insert(x.tostring(), i);
+        x.add(&g);
+        i.inc(1);
+    }
 
-        let bound = BigNum::new_int(10024);
-        let x = BigNum::new_int(1335);
-
-        let h = g.pow(&x);
-        if let Some(res) = baby_step_giant_step(&h, &g, &bound) {
-            println!("res={}", res);
+    // search for solution
+    z.neg();
+    z = z.mul(&m);
+    x = h.clone();
+    let mut x_neg = h.clone();
+    x_neg.neg();
+    i.zero();
+    println!("i: {:?}", i);
+    println!("m: {:?}", m);
+    while BigNum::comp(&i, &m) <= 0 {
+        // positive solution
+        match table.get(&x.tostring()) {
+            Some(value) => {
+                let mut temp = BigNum::modmul(&i, &m, &CURVE_ORDER);
+                temp = BigNum::modadd(&value, &temp, &CURVE_ORDER);
+                let temp = BigInt::from_str_radix(&temp.tostring(), 16).unwrap();
+                return Some(temp);
+            }
+            None => {
+                x.add(&z);
+            }
         }
-        println!("g={}", g.tostring());
-        println!("x={}", x.tostring());
+        // negative solution
+        match table.get(&x_neg.tostring()) {
+            Some(value) => {
+                let mut temp = BigNum::modmul(&i, &m, &CURVE_ORDER);
+                temp = BigNum::modadd(&value, &temp, &CURVE_ORDER);
+                temp = BigNum::modneg(&temp, &CURVE_ORDER);
+                let temp = BigInt::from_str_radix(&temp.tostring(), 16).unwrap() - (&*MODULUS);
+                return Some(temp);
+            }
+            None => {
+                x_neg.add(&z);
+            }
+        }
+        i.inc(1);
     }
 
-    #[test]
-    fn test_bigint_bignum_conversion() {
-        let a = BigNum::new_int(25500);
-        println!("{:?} => {}", a, a.tostring());
-        let a = BigInt::from_str_radix(&a.tostring(), 16);
-        let aa = BigInt::from(25500);
-        println!("{:?} => {:?}", a, aa);
-
-        let b = BigInt::from(15500);
-        println!("{:?} => {}", b, b.to_str_radix(16));
-        let b = BigNum::fromstring(b.to_str_radix(16));
-        let bb = BigNum::new_int(15500);
-        println!("{:?} => {:?}", b, bb);
-    }
-
+    None
 }
+
+
+pub fn inner_product_result(x: &[BigInt], y: &[BigInt]) -> BigInt {
+    if x.len() != y.len() {
+        panic!("Malformed input: x.len ({}), y.len ({})", x.len(), y.len());
+    }
+    let mut res = BigInt::zero();
+    for i in 0..x.len() {
+        let tmp =  &(x[i]) * &(y[i]);
+        res = res + tmp;
+    }
+    res
+}
+
+pub fn quadratic_result(x: &[BigInt], y: &[BigInt], f: &BigIntMatrix) -> BigInt {
+    if x.len() != f.n_rows ||  y.len() != f.n_cols {
+        panic!("Malformed input: x.len ({}), y.len ({}), f dim ({} x {})", x.len(), y.len(), f.n_rows, f.n_cols);
+    }
+    let mut res = BigInt::zero();
+    for i in 0..x.len() {
+        for j in 0..y.len() {
+            let mut tmp = f.get_element(i, j).clone();
+            tmp = tmp * &(x[i]) * &(y[j]);
+            res = res + tmp;
+        }
+    }
+    res
+}
+
+

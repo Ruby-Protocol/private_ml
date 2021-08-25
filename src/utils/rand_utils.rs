@@ -11,6 +11,8 @@ pub trait Sample<T> {
     fn sample_range(&mut self, low: &T, high: &T) -> T;
     fn sample_vec(&mut self, len: usize, modulus: &T) -> Vec<T>; 
     fn sample_range_vec(&mut self, len: usize, low: &T, high: &T) -> Vec<T>;
+    fn sample_array<const L: usize>(&mut self, modulus: &T) -> [T; L];
+    fn sample_range_array<const L: usize>(&mut self, low: &T, high: &T) -> [T; L];
 }
 
 trait RandUtils {
@@ -23,7 +25,7 @@ trait RandUtils {
 
 pub struct RandUtilsRAND {
     // Keep an internal RNG member to avoid having to initiate a new one in every functionality call 
-    rng: RAND_impl
+    pub rng: RAND_impl
 }
 
 impl RandUtilsRAND {
@@ -73,12 +75,20 @@ impl Sample<BigNum> for RandUtilsRAND {
         (0..len).map(|_| self.sample(&modulus).plus(low)).collect()
     }
 
+    fn sample_array<const L: usize>(&mut self, modulus: &BigNum) -> [BigNum; L] {
+        array_init::array_init(|_| self.sample(modulus))
+    }
+
+    fn sample_range_array<const L: usize>(&mut self, low: &BigNum, high: &BigNum) -> [BigNum; L] {
+        array_init::array_init(|_| self.sample_range(low, high))
+    }
+
 }
 
 #[derive(Debug)]
 pub struct RandUtilsRng {
     // Keep an internal RNG member to avoid having to initiate a new one in every functionality call 
-    rng: StdRng 
+    pub rng: StdRng 
 }
 
 impl RandUtilsRng {
@@ -130,31 +140,12 @@ impl Sample<BigInt> for RandUtilsRng {
         let range = Uniform::from(low.clone()..high.clone());
         (&mut self.rng).sample_iter(&range).take(len).collect()
     }
-}
 
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_rand_utils_rng () {
-        let mut rand_utils = RandUtilsRng::new();
-        println!("next u32: {:?}", rand_utils.rng.next_u32());
-        println!("next big int mod: {:?}", rand_utils.sample(&BigInt::from(1000)));
-        println!("next big int range: {:?}", rand_utils.sample_range(&BigInt::from(50), &BigInt::from(100)));
-        println!("next big int mod vec: {:?}", rand_utils.sample_vec(5, &BigInt::from(1000)));
-        println!("next big int range vec: {:?}", rand_utils.sample_range_vec(5, &BigInt::from(50), &BigInt::from(100)));
+    fn sample_array<const L: usize>(&mut self, modulus: &BigInt) -> [BigInt; L] {
+        array_init::array_init(|_| self.sample(modulus))
     }
 
-    #[test]
-    fn test_rand_utils_rand () {
-        let mut rand_utils = RandUtilsRAND::new();
-        println!("next big int mod: {:?}", rand_utils.sample(&BigNum::new_int(1000)));
-        println!("next big int range: {:?}", rand_utils.sample_range(&BigNum::new_int(50), &BigNum::new_int(100)));
-        println!("next big int mod vec: {:?}", rand_utils.sample_vec(5, &BigNum::new_int(1000)));
-        println!("next big int range vec: {:?}", rand_utils.sample_range_vec(5, &BigNum::new_int(50), &BigNum::new_int(100)));
+    fn sample_range_array<const L: usize>(&mut self, low: &BigInt, high: &BigInt) -> [BigInt; L] {
+        array_init::array_init(|_| self.sample_range(low, high))
     }
-
 }

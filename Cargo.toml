@@ -1,7 +1,7 @@
 [package]
-name = "functional_encryption_schemes"
+name = "ruby"
 version = "0.1.0"
-authors = ["Gaurav Tiwari <gaurav1@tutamail.com>"]
+authors = ["Zico <zhicong303@gmail.com>"]
 edition = "2018"
 
 [dependencies]
@@ -12,3 +12,6 @@ rand_chacha = "0.3.0"
 num-traits = "0.2.8"
 num-bigint = {version = "0.4.0", features = ["rand"]}
 num-integer = "0.1.43"
+fawkes-crypto = "4.2.5"
+base64 = { default-features = false, version = '0.13.0', features=["alloc"] }
+array-init = "2.0.0"

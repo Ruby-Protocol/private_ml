@@ -1,7 +1,7 @@
-use lazy_static::lazy_static;
-use miracl_core::bls12381::ecp;
+//use lazy_static::lazy_static;
+//use miracl_core::bls12381::ecp;
 use miracl_core::bls12381::pair;
-use miracl_core::bls12381::rom;
+//use miracl_core::bls12381::rom;
 /* use  miracl_core::bn254::big;
 use miracl_core::bn254::big::BIG;
 use miracl_core::bn254::ecp;
@@ -12,15 +12,15 @@ use miracl_core::bn254::pair;
 use miracl_core::bn254::rom; */
 use miracl_core::hash256::HASH256;
 //use miracl_core::rand::{RAND, RAND_impl};
-use num_bigint::{BigInt, ToBigInt};
-use num_traits::{Num, Zero};
+use num_bigint::{BigInt};
+use num_traits::{Num};
 //use rand::prelude::*;
 use std::convert::TryInto;
 
 use crate::define::{BigNum, G1, G2, GT, G1Vector, G2Vector, MB, CURVE_ORDER, MODULUS};
 use crate::math::matrix::BigIntMatrix2x2;
 use crate::utils::{baby_step_giant_step, hash_to_g1, hash_to_g2, reduce};
-use crate::utils::rand_utils::{RandUtilsRAND, RandUtilsRng, Sample};
+use crate::utils::rand_utils::{RandUtilsRAND, Sample};
 
 
 
@@ -246,97 +246,4 @@ impl Dmcfe {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn inner_product_result(x: &[BigInt], y: &[BigInt]) -> BigInt {
-        if x.len() != y.len() {
-            panic!("Malformed input: x.len ({}), y.len ({})", x.len(), y.len());
-        }
-        let mut res = BigInt::zero();
-        for i in 0..x.len() {
-            let mut tmp =  &(x[i]) * &(y[i]);
-            res = res + tmp;
-        }
-        res
-    }
-
-    #[test]
-    fn test_dmcfe_5() {
-        let mut rng = RandUtilsRng::new(); 
-        let num_clients: usize = 5;
-        let bound = BigInt::from(100);
-        let low = (-&bound);
-        let high = bound.clone();
-        let mut clients: Vec<Dmcfe> = Vec::with_capacity(num_clients);
-        let mut pub_keys: Vec<G1> = Vec::with_capacity(num_clients);
-        let mut ciphers: Vec<G1> = Vec::with_capacity(num_clients);
-        let mut fe_key: Vec<G2Vector> = Vec::with_capacity(num_clients);
-        let mut temp: G1;
-
-        for i in 0..num_clients {
-            clients.push(Dmcfe::new(i));
-        }
-
-        for i in 0..num_clients {
-            temp = clients[i].client_pub_key.clone();
-            pub_keys.push(temp);
-        }
-
-        for i in 0..num_clients {
-            clients[i].set_share(&pub_keys);
-        }
-
-        let label = "dmcfe-label";
-        let mut x: Vec<BigInt> = rng.sample_range_vec(num_clients, &low, &high); 
-        let mut y: Vec<BigInt> = rng.sample_range_vec(num_clients, &low, &high);
-        let plain_result = inner_product_result(&x, &y);
-        println!("Groud truth: {:?}", plain_result);
-
-        for i in 0..num_clients {
-            ciphers.push(clients[i].encrypt(&x[i], label));
-            fe_key.push(clients[i].derive_fe_key_share(&y[..]));
-        }
-        println!("decrypt starts");
-        use std::time::Instant;
-        let now = Instant::now();
-        let dk = Dmcfe::key_comb(&fe_key);
-        let xy = Dmcfe::decrypt(&ciphers, &y[..], &dk, label, &bound);
-        let elapsed = now.elapsed();
-        println!("Elapsed: {:.2?}", elapsed);
-
-        assert!(xy.is_some());
-        assert_eq!(xy.unwrap(), plain_result);
-    }
-
-    #[test]
-    fn test_dmcfe_single_client() {
-        let mut rng = RandUtilsRng::new(); 
-        let n: usize = 5;
-        let bound = BigInt::from(100);
-        let low = (-&bound);
-        let high = bound.clone();
-
-        let label = "dmcfe-label";
-        let mut x: Vec<BigInt> = rng.sample_range_vec(n, &low, &high); 
-        let mut y: Vec<BigInt> = rng.sample_range_vec(n, &low, &high);
-        let plain_result = inner_product_result(&x, &y);
-        println!("Groud truth: {:?}", plain_result);
-
-        let mut client = Dmcfe::new(0);
-        let ciphers: G1Vector = client.encrypt_vec(&x[..], label);
-        let dk: G2Vector = client.derive_fe_key(&y[..]);
-        
-        println!("decrypt starts");
-        use std::time::Instant;
-        let now = Instant::now();
-        let xy = Dmcfe::decrypt(&ciphers, &y[..], &dk, label, &bound);
-        let elapsed = now.elapsed();
-        println!("Elapsed: {:.2?}", elapsed);
-
-        assert!(xy.is_some());
-        assert_eq!(xy.unwrap(), plain_result);
-    }
-}
 

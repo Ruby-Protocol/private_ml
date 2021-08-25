@@ -1,6 +1,3 @@
-use miracl_core::bls12381::big::BIG;
-use miracl_core::bls12381::dbig::DBIG;
-use miracl_core::rand::RAND;
 use num_bigint::BigInt;
 use crate::rand_chacha::rand_core::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -9,7 +6,7 @@ use std::convert::TryInto;
 
 use crate::utils::{reduce};
 use crate::utils::rand_utils::{RandUtilsRng, RandUtilsRAND, Sample};
-use crate::define::{BigNum, DBigNum, DBigZero};
+use crate::define::{BigNum};
 
 
 pub fn convert(src: &BigIntMatrix, modulus: &BigInt) -> BigNumMatrix {
@@ -149,7 +146,7 @@ impl BigNumMatrix2x2 {
         let b: &BigNum = self.get_element(0, 1);
         let c: &BigNum = self.get_element(1, 0);
         let d: &BigNum = self.get_element(1, 1);
-        let mut ad = BigNum::modmul(a, d, modulus);
+        let ad = BigNum::modmul(a, d, modulus);
         let mut bc = BigNum::modmul(b, c, modulus);
         bc = BigNum::modneg(&bc, modulus);
         BigNum::modadd(&ad, &bc, modulus)

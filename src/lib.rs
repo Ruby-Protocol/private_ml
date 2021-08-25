@@ -11,4 +11,6 @@ pub mod math;
 pub mod utils;
 pub mod dmcfe_ip;
 pub mod quadratic_sgp;
+pub mod simple_ip;
 pub mod ml;
+pub mod zk;

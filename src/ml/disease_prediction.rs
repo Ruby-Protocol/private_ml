@@ -74,7 +74,7 @@ mod tests {
         }
         let mut res: f32 = 0.0;
         for i in 0..x.len() {
-            let mut tmp =  x[i] * y[i];
+            let tmp =  x[i] * y[i];
             res = res + tmp;
         }
         res
