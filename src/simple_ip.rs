@@ -121,7 +121,6 @@ impl<const L: usize> Sip<L> {
         let mut result_bound = BigNum::fromstring(bound.to_str_radix(16));
         result_bound = result_bound.powmod(&BigNum::new_int(2), &CURVE_ORDER);
         result_bound = BigNum::modmul(&result_bound, &BigNum::new_int(L as isize), &CURVE_ORDER);
-        println!("result_bound: {:?}", result_bound.tostring());
 
         baby_step_giant_step_g1(&res, &G1::generator(), &result_bound)
     }

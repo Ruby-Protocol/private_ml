@@ -26,6 +26,7 @@ use ruby::math::matrix::{BigIntMatrix};
 use ruby::utils::{quadratic_result, reduce};
 use ruby::zk::dlog::{ZkDlog};
 use ruby::zk::qp::{ZkQp};
+use ruby::zk::sip::{ZkSip};
 use std::time::Instant;
 use ruby::zk::qp::{QPProofSecret, QPProofPublic, CQPProofSecret, CQPProofPublic};
 use ruby::zk::ToEncoding;
@@ -301,4 +302,36 @@ fn test_zk_quadratic_polynomial_zk() {
     println!("vk: ");
     println!("{}", snark.vk.encode());
 }
+
+#[test]
+fn test_zk_simple_inner_product_zk() {
+
+    const N: usize = 1;
+    let mut rng = thread_rng();
+    let jubjub_params = JubJubBN256::new();
+
+    let g = EdwardsPoint::<Bn256Fr>::rand(&mut rng, &jubjub_params)
+        .mul(Num::from(8), &jubjub_params);
+    let sk: Num<Bn256Fr> = rng.gen();
+    let h = g.mul(sk.to_other_reduced(), &jubjub_params);
+
+    let s: SizedVec<Num<Bn256Fr>, N> = (0..N).map(|_| rng.gen()).collect();
+
+    let y: SizedVec<Num<Bn256Fr>, N> = (0..N).map(|_| rng.gen()).collect();
+
+    let snark = ZkSip::<N>::generate(&g, &h, &s, &y);
+
+    let res = verifier::verify(&snark.vk, &snark.proof, &snark.inputs);
+    assert!(res, "Verifier result should be true");
+
+    println!("Inputs: ");
+    println!("{}", snark.inputs.encode());
+
+    println!("Proof: ");
+    println!("{}", snark.proof.encode());
+
+    println!("vk: ");
+    println!("{}", snark.vk.encode());
+}
+
 

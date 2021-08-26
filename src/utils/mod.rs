@@ -127,8 +127,6 @@ pub fn baby_step_giant_step(h: &GT, g: &GT, bound: &BigNum) -> Option<BigInt> {
 pub fn baby_step_giant_step_g1(h: &G1, g: &G1, bound: &BigNum) -> Option<BigInt> {
     let mut table = HashMap::new();
     let pow_zero = G1::new();
-    println!("{:?}", h);
-    println!("{:?}", pow_zero);
     if pow_zero.equals(&h) {
         return Some(BigInt::from(0));
     }
@@ -154,8 +152,6 @@ pub fn baby_step_giant_step_g1(h: &G1, g: &G1, bound: &BigNum) -> Option<BigInt>
     let mut x_neg = h.clone();
     x_neg.neg();
     i.zero();
-    println!("i: {:?}", i);
-    println!("m: {:?}", m);
     while BigNum::comp(&i, &m) <= 0 {
         // positive solution
         match table.get(&x.tostring()) {

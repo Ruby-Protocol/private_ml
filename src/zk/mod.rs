@@ -11,6 +11,7 @@ use fawkes_crypto::{
 
 pub mod dlog;
 pub mod qp;
+pub mod sip;
 
 pub trait Zk {
     type Fr: PrimeField;
