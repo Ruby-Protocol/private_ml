@@ -71,8 +71,10 @@ mod tests {
 
     #[test]
     fn test_dmcfe_single_client() {
+        use std::time::Instant;
+
         let mut rng = RandUtilsRng::new(); 
-        let n: usize = 5;
+        let n: usize = 1;
         let bound = BigInt::from(100);
         let low = -&bound;
         let high = bound.clone();
@@ -84,15 +86,21 @@ mod tests {
         println!("Groud truth: {:?}", plain_result);
 
         let client = Dmcfe::new(0);
+
+        let now = Instant::now();
         let ciphers: G1Vector = client.encrypt_vec(&x[..], label);
+        let elapsed = now.elapsed();
+        println!("[DMCFE Encrypt]: {:.2?}", elapsed);
+
+        let now = Instant::now();
         let dk: G2Vector = client.derive_fe_key(&y[..]);
+        let elapsed = now.elapsed();
+        println!("[DMCFE Derive]: {:.2?}", elapsed);
         
-        println!("decrypt starts");
-        use std::time::Instant;
         let now = Instant::now();
         let xy = Dmcfe::decrypt(&ciphers, &y[..], &dk, label, &bound);
         let elapsed = now.elapsed();
-        println!("Elapsed: {:.2?}", elapsed);
+        println!("[DMCFE Decrypt]: {:.2?}", elapsed);
 
         assert!(xy.is_some());
         assert_eq!(xy.unwrap(), plain_result);

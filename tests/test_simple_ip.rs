@@ -15,9 +15,11 @@ use ruby::simple_ip::Sip;
 
 #[test]
 fn test_sip() {
+    use std::time::Instant;
+
     let mut rng = RandUtilsRng::new(); 
-    const L: usize = 10;
-    let bound: i32 = 64;
+    const L: usize = 20;
+    let bound: i32 = 100;
     let low = (-bound).to_bigint().unwrap();
     let high = bound.to_bigint().unwrap();
 
@@ -28,9 +30,20 @@ fn test_sip() {
     let plain_result = inner_product_result(&x, &y);
     println!("Groud truth: {:?}", plain_result);
 
+    let now = Instant::now();
     let cipher = sip.encrypt(&x);
+    let elapsed = now.elapsed();
+    println!("[SIP Encrypt]: {:.2?}", elapsed);
+
+    let now = Instant::now();
     let dk = sip.derive_fe_key(&y);
+    let elapsed = now.elapsed();
+    println!("[SIP Derive FE Key]: {:.2?}", elapsed);
+
+    let now = Instant::now();
     let result = sip.decrypt(&cipher, &dk, &y, &BigInt::from(bound)); 
+    let elapsed = now.elapsed();
+    println!("[SIP Decrypt]: {:.2?}", elapsed);
 
     assert!(result.is_some());
     assert_eq!(result.unwrap(), plain_result);

@@ -39,9 +39,11 @@ fn test_sgp_1() {
 
 #[test]
 fn test_sgp_2() {
+    use std::time::Instant;
+
     let mut rng = RandUtilsRng::new(); 
-    const L: usize = 10;
-    let bound: i32 = 64;
+    const L: usize = 1;
+    let bound: i32 = 100;
     let low = (-bound).to_bigint().unwrap();
     let high = bound.to_bigint().unwrap();
 
@@ -53,9 +55,20 @@ fn test_sgp_2() {
     let plain_result = quadratic_result(&x, &y, &f);
     println!("Groud truth: {:?}", plain_result);
 
+    let now = Instant::now();
     let cipher = sgp.encrypt(&x, &y);
+    let elapsed = now.elapsed();
+    println!("[Quadratic Encrypt]: {:.2?}", elapsed);
+
+    let now = Instant::now();
     let dk = sgp.derive_fe_key(&f);
+    let elapsed = now.elapsed();
+    println!("[Quadratic Derive]: {:.2?}", elapsed);
+
+    let now = Instant::now();
     let result = sgp.decrypt(&cipher, &dk, &BigInt::from(bound)); 
+    let elapsed = now.elapsed();
+    println!("[Quadratic Decrypt]: {:.2?}", elapsed);
 
     assert!(result.is_some());
     assert_eq!(result.unwrap(), plain_result);
