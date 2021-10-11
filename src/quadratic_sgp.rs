@@ -15,7 +15,18 @@ use crate::math::matrix::{BigNumMatrix, BigIntMatrix, BigNumMatrix2x2, convert};
 use crate::utils::{reduce, baby_step_giant_step};
 use crate::utils::rand_utils::{RandUtilsRAND, Sample};
 
-
+/// Functional encryption scheme for quadratic polynomials. Implements the following work:
+///
+/// Reading in the Dark: Classifying Encrypted Digits with Functional Encryption.
+///
+/// Link: https://eprint.iacr.org/2018/206.pdf
+///
+/// # Examples
+/// 
+/// ```
+/// use ruby::quadratic_sgp::Sgp; 
+/// let sgp = Sgp::new(2);
+/// ```
 #[derive(Debug)]
 pub struct Sgp {
     n: usize,
@@ -23,18 +34,21 @@ pub struct Sgp {
     pk: SgpPubKey
 }
 
+/// Master secret key
 #[derive(Debug)]
 pub struct SgpSecKey {
     s: Vec<BigNum>, 
     t: Vec<BigNum>,
 }
 
+/// Master public key
 #[derive(Debug)]
 pub struct SgpPubKey {
     g1s: G1Vector,
     g2t: G2Vector,
 }
 
+/// Ciphertext
 #[derive(Debug)]
 pub struct SgpCipher {
     g1_mul_gamma: G1,
@@ -43,6 +57,7 @@ pub struct SgpCipher {
     n: usize,
 }
 
+/// Functional evaluation key
 #[derive(Debug)]
 pub struct SgpDecKey {
     key: G2,
@@ -52,6 +67,14 @@ pub struct SgpDecKey {
 
 
 impl Sgp {
+    /// Constructs a new `Sgp`. 
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use ruby::quadratic_sgp::Sgp; 
+    /// let sgp = Sgp::new(2);
+    /// ```
     pub fn new(n: usize) -> Sgp {
         let (msk, pk) = Sgp::generate_sec_key(n);
         Sgp {
@@ -61,6 +84,7 @@ impl Sgp {
         }
     }
 
+    /// Generate a pair of master secret key and master public key.
     pub fn generate_sec_key(n: usize) -> (SgpSecKey, SgpPubKey) {
         let mut rng = RandUtilsRAND::new();
         let msk = SgpSecKey {
@@ -78,6 +102,19 @@ impl Sgp {
         (msk, pk)
     }
 
+    /// Encrypt two vectors of numbers, resulting in a single ciphertext.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut x: Vec<BigInt> = Vec::with_capacity(2);
+    /// let mut y: Vec<BigInt> = Vec::with_capacity(2);
+    /// for i in 0..2 {
+    ///     x.push(BigInt::from(i));
+    ///     y.push(BigInt::from(i+1));
+    /// }
+    /// let cipher = sgp.encrypt(&x, &y);
+    /// ```
     pub fn encrypt(&self, x: &[BigInt], y: &[BigInt]) -> SgpCipher {
         if x.len() != self.n ||  y.len() != self.n {
             panic!("Malformed input: x.len ({}), y.len ({}), expected len ({})", x.len(), y.len(), self.n);
@@ -135,6 +172,9 @@ impl Sgp {
         }
     }
 
+    /// Project a ciphertext into another ciphertext with a projection matrix.
+    /// 
+    /// Read the paper for details.
     pub fn project(&self, cipher: &SgpCipher, p: &BigIntMatrix) -> SgpCipher {
         if self.n != p.n_rows || self.n != cipher.n {
             panic!("Malformed input: self.n ({}), cipher.n ({}), P.dim ({} x {})", self.n, cipher.n, p.n_rows, p.n_cols);
@@ -169,6 +209,15 @@ impl Sgp {
         }
     }
 
+    /// Derive functional evaluation key for a matrix of numbers.
+    ///
+    /// # Examples
+    /// ```
+    /// // Following the example of `encrypt`
+    /// let a: [i64; 4] = [1; 4];
+    /// let f = BigIntMatrix::new_ints(&a[..], 2, 2);
+    /// let dk = sgp.derive_fe_key(&f);
+    /// ```
     pub fn derive_fe_key(&self, f: &BigIntMatrix) -> SgpDecKey {
         let new_f = convert(f, &MODULUS);
         let new_s = BigNumMatrix::new_bigints(&self.msk.s, 1, self.msk.s.len(), &CURVE_ORDER);
@@ -182,6 +231,9 @@ impl Sgp {
         }
     }
 
+    /// Derive functional evaluation key for a matrix of numbers, with a projection matrix.
+    ///
+    /// Read the paper for details.
     pub fn derive_fe_key_projected(&self, f: &BigIntMatrix, p: &BigIntMatrix) -> SgpDecKey {
         if self.n != p.n_rows || f.n_rows != f.n_cols || f.n_rows != p.n_cols {
             panic!("Malformed input: f.dim ({} x {}), P.dim ({} x {})", f.n_rows, f.n_cols, p.n_rows, p.n_cols);
@@ -202,7 +254,15 @@ impl Sgp {
         }
     }
 
-
+    /// Decrypt a ciphertext with the functional evaluation key. The parameter `bound` is the absolute value bound for
+    /// numbers used in the inner product.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Following the example of `derive_fe_key`
+    /// let result = sgp.decrypt(&cipher, &dk, &BigInt::from(100)); 
+    /// ```
     pub fn decrypt(&self, ct: &SgpCipher, dk: &SgpDecKey, bound: &BigInt) -> Option<BigInt> {
         if ct.a.len() != dk.f.n_rows * 2 || ct.b.len() != dk.f.n_cols * 2 {
             panic!("Malformed input: a.len ({}), b.len ({}), f dimension ({} x {}).", ct.a.len() / 2, ct.b.len() / 2, dk.f.n_rows, dk.f.n_cols);

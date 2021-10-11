@@ -29,6 +29,7 @@ pub fn c_dlog<C: CS, J: JubJubParams<Fr = C::Fr>>(g: &CEdwardsPoint<C>, x: &CNum
 }
 
 
+/// Zero knowledge proof for a discrete logarithm.
 pub struct ZkDlog;
 
 impl ZkDlog {
@@ -38,6 +39,17 @@ impl ZkDlog {
         signal_y.assert_eq(&public.1);
     }
 
+    /// Generate zero knowledge proof for y=g^x.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut rng = thread_rng();
+    /// let jubjub_params = JubJubBN256::new();
+    /// let g = EdwardsPoint::<Bn256Fr>::rand(&mut rng, &jubjub_params).mul(Num::from(8), &jubjub_params);
+    /// let x: Num<Bn256Fr> = rng.gen();
+    /// let snark = ZkDlog::generate(&g, &x);
+    /// ```
     pub fn generate(g: &EdwardsPoint<Fr>, x: &Num<Fr>) -> SnarkInfo<E> {
         let jubjub_params = JJParams::new(); 
         let bellman_params = setup::<E, _, _, _>(ZkDlog::circuit);

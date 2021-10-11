@@ -24,19 +24,42 @@ use crate::utils::rand_utils::{RandUtilsRAND, Sample};
 
 
 
+/// Decentralized Multi-Client Functional Encryption for Inner Product.
+///
+/// Link: https://eprint.iacr.org/2017/989.pdf
+///
+/// # Examples
+///
+/// ```
+/// use ruby::dmcfe_ip::Dmcfe; 
+/// let client = Dmcfe::new(0);
+/// ```
 #[derive(Debug)]
 #[derive(Clone)]
 pub struct Dmcfe {
+    /// Index of a client
     index: usize,
+    /// Public key  
     pub client_pub_key: G1,
+    /// Secret key
     client_sec_key: BigNum,
+    /// Secret share matrix
     share: BigIntMatrix2x2,
+    /// Functional secret key
     s: [BigNum; 2],
 }
 
 
 impl Dmcfe {
 
+    /// Constructs a new `Dmcfe` for a client with specified `index`. 
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ruby::dmcfe_ip::Dmcfe; 
+    /// let client = Dmcfe::new(0);
+    /// ```
     pub fn new(index: usize) -> Dmcfe {
         let mut rng = RandUtilsRAND::new();
         let client_sec_key = rng.sample(&(CURVE_ORDER));
@@ -59,6 +82,22 @@ impl Dmcfe {
         }
     }
 
+    /// Set the secret share matrix with all clients' public keys.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// for i in 0..num_clients {
+    ///     clients.push(Dmcfe::new(i));
+    /// }
+    /// for i in 0..num_clients {
+    ///     temp = clients[i].client_pub_key.clone();
+    ///     pub_keys.push(temp);
+    /// }
+    /// for i in 0..num_clients {
+    ///     clients[i].set_share(&pub_keys);
+    /// } 
+    /// ```
     pub fn set_share(&mut self, pub_keys: &[G1]) {
         let mut shared_g1: G1 = G1::new();
         let mut t: [u8; MB + 1] = [0; MB + 1];
@@ -90,6 +129,15 @@ impl Dmcfe {
         }
     }
 
+    /// Encrypt a number, together with a label. Label should be the same for all clients. 
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let x = BigInt::from(10);
+    /// let label = "dmcfe-label";
+    /// let cipher = client.encrypt(&x, label);
+    /// ``` 
     pub fn encrypt(&self, x: &BigInt, label: &str) -> G1 {
         let x = reduce(&x, &MODULUS);
         let x = BigNum::fromstring(x.to_str_radix(16));
@@ -109,6 +157,7 @@ impl Dmcfe {
         cipher
     }
 
+    /// Encrypt a vector fo numbers. Only used when there is a single client.
     pub fn encrypt_vec(&self, x: &[BigInt], label: &str) -> G1Vector {
         let mut ciphers: G1Vector = Vec::with_capacity(x.len());
         for i in 0..x.len() {
@@ -117,6 +166,14 @@ impl Dmcfe {
         ciphers
     }
 
+    /// Derive a share of the functional evaluation key for a vector of numbers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let y: Vec<BigInt> = ... // Construct a vector 
+    /// let fe_share = client.derive_fe_key_share(&y[..]); 
+    /// ```
     pub fn derive_fe_key_share(&self, y: &[BigInt]) -> G2Vector {
         let mut fe_key_share: G2Vector = vec![G2::new(); 2];
         let mut hs: G2Vector = vec![G2::new(); 2];
@@ -151,6 +208,14 @@ impl Dmcfe {
         fe_key_share
     }
     
+    /// Derive the functional evaluation key for a vector of numbers. Only used when there is a single client.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let y: Vec<BigInt> = ... // Construct a vector 
+    /// let fe_share = client.derive_fe_key(&y[..]); 
+    /// ```
     pub fn derive_fe_key(&self, y: &[BigInt]) -> G2Vector {
         let mut fe_key: G2Vector = vec![G2::new(); 2];
         let mut hs: G2Vector = vec![G2::new(); 2];
@@ -180,6 +245,14 @@ impl Dmcfe {
         fe_key
     }
     
+    /// Combining shares into the functional evaluation key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // fe_key: Vec<G2Vector>
+    /// let dk = Dmcfe::key_comb(&fe_key);
+    /// ```
     pub fn key_comb(key_shares: &[G2Vector]) -> G2Vector {
         let mut keys_sum: G2Vector = vec![G2::new(); 2];
 
@@ -195,6 +268,15 @@ impl Dmcfe {
         keys_sum
     }
 
+    /// Decrypt a ciphertext with the functional evaluation key `dk`, associated with a specified label. The parameter `bound` is the absolute value bound for numbers used in the quadratic polynomial.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Following the example of `key_comb`
+    /// let bound = BigInt::from(100);
+    /// let xfy = Dmcfe::decrypt(&ciphers, &y[..], &dk, label, &bound); 
+    /// ```
     pub fn decrypt(
         ciphers: &[G1],
         y: &[BigInt],

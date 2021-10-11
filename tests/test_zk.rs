@@ -266,6 +266,9 @@ fn test_zk_discrete_log() {
 
     println!("vk: ");
     println!("{}", snark.vk.encode());
+
+    println!("substrate input");
+    println!("{}", snark.to_substrate_proof());
 }
 
 #[test]

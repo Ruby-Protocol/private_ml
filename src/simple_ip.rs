@@ -18,33 +18,44 @@ use crate::utils::rand_utils::{RandUtilsRAND, Sample};
 
 
 
-/**
-Implementation of the paper:
-[ABDP15] Michel Abdalla, Florian Bourse, Angelo De Caro, and David Pointcheval, "Simple Functional Encryption Schemes for Inner Products", PKC 2015.
-*/
-
+/// Michel Abdalla, Florian Bourse, Angelo De Caro, and David Pointcheval, "Simple Functional Encryption Schemes for Inner Products", PKC 2015.
+///
+/// `L` is the length of input vectors for the inner product.
+///
+/// # Examples
+/// 
+/// ```
+/// use ruby::simple_ip::Sip; 
+/// let sip = Sip::<L>::new();
+/// ```
 #[derive(Debug)]
 pub struct Sip<const L: usize> {
+    /// Master secret key
     msk: SipMsk<L>,
+    /// Master public key
     mpk: SipMpk<L>
 }
 
+/// Master secret key: a secret of length L.
 #[derive(Debug)]
 pub struct SipMsk<const L: usize> {
     s: [BigNum; L]
 }
 
+/// Master public key
 #[derive(Debug)]
 pub struct SipMpk<const L: usize> {
     v: [G1; L],
 }
 
+/// Functional encryption ciphertext
 #[derive(Debug)]
 pub struct SipCipher<const L: usize> {
     c0: G1,
     c: [G1; L]
 }
 
+/// Functional evaluation key
 #[derive(Debug)]
 pub struct SipDk {
     dk: BigNum
@@ -53,6 +64,14 @@ pub struct SipDk {
 
 
 impl<const L: usize> Sip<L> {
+    /// Constructs a new `Sip<L>`.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use ruby::simple_ip::Sip; 
+    /// let sip = Sip::<L>::new();
+    /// ```
     pub fn new() -> Sip<L> {
         let (msk, mpk) = Sip::generate_sec_key();
         Sip {
@@ -61,6 +80,7 @@ impl<const L: usize> Sip<L> {
         }
     }
 
+    /// Generate a pair of master secret key and master public key.
     pub fn generate_sec_key() -> (SipMsk<L>, SipMpk<L>) {
         let mut rng = RandUtilsRAND::new();
         let msk = SipMsk {
@@ -75,6 +95,20 @@ impl<const L: usize> Sip<L> {
         (msk, mpk)
     }
 
+    /// Encrypt a vector of numbers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut rng = RandUtilsRng::new(); 
+    /// const L: usize = 20;
+    /// let bound: i32 = 100;
+    /// let low = (-bound).to_bigint().unwrap();
+    /// let high = bound.to_bigint().unwrap();
+    /// let sip = Sip::<L>::new();
+    /// let x: [BigInt; L] = rng.sample_range_array::<L>(&low, &high); 
+    /// let cipher = sip.encrypt(&x);
+    /// ```
     pub fn encrypt(&self, x: &[BigInt; L]) -> SipCipher<L> {
         let mut rng = RandUtilsRAND::new();
 
@@ -93,7 +127,15 @@ impl<const L: usize> Sip<L> {
             c
         }
     }
-    
+   
+    /// Derive functional evaluation key for a vector of numbers.
+    ///
+    /// # Examples
+    /// ```
+    /// // Following the example of `encrypt`
+    /// let y: [BigInt; L] = rng.sample_range_array::<L>(&low, &high); 
+    /// let dk = sip.derive_fe_key(&y);
+    /// ```
     pub fn derive_fe_key(&self, y: &[BigInt; L]) -> SipDk {
         let mut dk: BigNum = BigNum::new();
         for i in 0..L {
@@ -107,6 +149,14 @@ impl<const L: usize> Sip<L> {
         }
     }
 
+    /// Decrypt a ciphertext with the functional evaluation key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Following the example of `derive_fe_key`
+    /// let result = sip.decrypt(&cipher, &dk, &y, &BigInt::from(bound)); 
+    /// ```
     pub fn decrypt(&self, ct: &SipCipher<L>, dk: &SipDk, y: &[BigInt; L], bound: &BigInt) -> Option<BigInt> {
         let mut res = G1::new();
         for i in 0..L {

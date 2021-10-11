@@ -46,3 +46,9 @@ impl<E: Engine> ToEncoding for VK<E> {
     }
 }
 
+impl<E: Engine> SnarkInfo<E> {
+    pub fn to_substrate_proof(&self) -> String {
+        format!("{{\"proof\":\"{}\",\"input\":\"{}\"}}", self.proof.encode(), self.inputs.encode())
+    }
+}
+

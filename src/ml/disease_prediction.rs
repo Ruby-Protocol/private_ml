@@ -3,10 +3,9 @@ use std::convert::TryInto;
 use crate::define::{G1Vector};
 use crate::dmcfe_ip::{Dmcfe};
 
-/*
-   The disease prediction application in the following paper:
-   [MSHBM2019] Marc, T., Stopar, M., Hartman, J., Bizjak, M., & Modic, J. (2019, September). Privacy-Enhanced Machine Learning with Functional Encryption. In European Symposium on Research in Computer Security (pp. 3-21). Springer, Cham.
-*/
+/// The disease prediction application in the following paper:
+/// 
+/// Marc, T., Stopar, M., Hartman, J., Bizjak, M., & Modic, J. (2019, September). Privacy-Enhanced Machine Learning with Functional Encryption. In European Symposium on Research in Computer Security (pp. 3-21). Springer, Cham.
 pub struct DiseasePrediction<'a> {
     pub y1: Vec<f32>,
     pub y2: Vec<f32>,
@@ -17,6 +16,14 @@ pub struct DiseasePrediction<'a> {
 }
 
 impl<'a> DiseasePrediction<'a> {
+
+    /// Constructs a new `DiseasePrediction` application.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let service = DiseasePrediction::new();
+    /// ```
     pub fn new() -> Self {
         let y1: Vec<f32> = vec![0.34362, 2.63588, 1.8803, 1.12673, -0.90941, 0.59397, 0.5232, 0.68602];
         let y2: Vec<f32> = vec![0.48123, 3.39222, 1.39862, -0.00439, 0.16081, 0.99858, 0.19035, 0.49756];
@@ -34,14 +41,29 @@ impl<'a> DiseasePrediction<'a> {
         }
     }
 
-    /* Encrypt client's input: a vector of floating point values */
+    /// Encrypt client's input: a vector of floating point values.
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// let service = DiseasePrediction::new();
+    /// let x: Vec<f32> = vec![0.1, -0.23, 1.1, 0.98, 5.6, -0.9, -5.0, 2.4];
+    /// let ciphers = service.encrypt(&x); 
+    /// ```
     pub fn encrypt(&self, x: &[f32]) -> G1Vector {
         let int_x: Vec<BigInt> = x.iter().map(|&xi| BigInt::from((xi * self.scale).round() as i64)).collect();
         let ciphers = self.fe.encrypt_vec(&int_x[..], self.label);
         ciphers
     }
 
-    /* Compute the inner product of client's input with the two parameter vectors in disease prediction */
+    /// Compute the inner product of client's input with the two parameter vectors in disease prediction.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Following the examples of `encrypt`
+    /// let result = service.compute(&ciphers); 
+    /// ```
     pub fn compute(&self, ciphers: &G1Vector) -> Vec<f32> {
         let int_y1: Vec<BigInt> = self.y1.iter().map(|&yi| BigInt::from((yi * self.scale).round() as i64)).collect(); 
         let int_y2: Vec<BigInt> = self.y2.iter().map(|&yi| BigInt::from((yi * self.scale).round() as i64)).collect(); 

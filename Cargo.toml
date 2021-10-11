@@ -5,7 +5,7 @@ authors = ["Zico <zhicong303@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-miracl_core={path="vendor/miracl/mcore", version="0.1.0"}
+miracl_core = "2.7.0"
 lazy_static = "1.4.0"
 rand = "0.8.4"
 rand_chacha = "0.3.0"

@@ -67,6 +67,7 @@ pub struct CQPProofSecret<C: CS, const L: usize> {
     pub t: SizedVec<CNum<C>, L>
 }
 
+/// Zero knowledge proof for quadractic polynomial functional encryption.
 pub struct ZkQp<const L: usize>;
 
 impl<const L: usize> ZkQp<L> {
@@ -95,6 +96,25 @@ impl<const L: usize> ZkQp<L> {
         c4.assert_eq(&public.c4);
     }
 
+    /// Generate zero knowledge proof for a statement proving that all keys are generated in a valid way.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// const N: usize = 1;
+    /// let mut rng = thread_rng();
+    /// let jubjub_params = JubJubBN256::new();
+    /// let g1 = EdwardsPoint::<Bn256Fr>::rand(&mut rng, &jubjub_params).mul(Num::from(8), &jubjub_params);
+    /// let sk: Num<Bn256Fr> = rng.gen();
+    /// let h1 = g1.mul(sk.to_other_reduced(), &jubjub_params);
+    /// let s: SizedVec<Num<Bn256Fr>, N> = (0..N).map(|_| rng.gen()).collect();
+    /// let t: SizedVec<Num<Bn256Fr>, N> = (0..N).map(|_| rng.gen()).collect();
+    /// let bound: i32 = 64;
+    /// let low = (-bound).to_bigint().unwrap();
+    /// let high = bound.to_bigint().unwrap();
+    /// let bigint_f = BigIntMatrix::new_random(N, N, &low, &high);
+    /// let snark = ZkQp::<N>::generate(&g1, &h1, &s, &t, &bigint_f);
+    /// ```
     pub fn generate(g1: &EdwardsPoint<Fr>, h1: &EdwardsPoint<Fr>, s: &SizedVec<Num<Fr>, L>, t: &SizedVec<Num<Fr>, L>, f: &BigIntMatrix) -> SnarkInfo<E> {
         let jubjub_params = JJParams::new();
         let mut rng = thread_rng();

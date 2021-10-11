@@ -58,6 +58,7 @@ pub struct CSipProofSecret<C: CS, const L: usize> {
     pub y: SizedVec<CNum<C>, L>
 }
 
+/// Zero knowledge proof for the simple inner product functional encryption.
 pub struct ZkSip<const L: usize>;
 
 impl<const L: usize> ZkSip<L> {
@@ -88,6 +89,21 @@ impl<const L: usize> ZkSip<L> {
         v.assert_eq(&public.v);
     }
 
+    /// Generate zero knowledge proof for a statement proving that all keys are generated in a valid way. 
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// const N: usize = 1;
+    /// let mut rng = thread_rng();
+    /// let jubjub_params = JubJubBN256::new();
+    /// let g = EdwardsPoint::<Bn256Fr>::rand(&mut rng, &jubjub_params).mul(Num::from(8), &jubjub_params);
+    /// let sk: Num<Bn256Fr> = rng.gen();
+    /// let h = g.mul(sk.to_other_reduced(), &jubjub_params);
+    /// let s: SizedVec<Num<Bn256Fr>, N> = (0..N).map(|_| rng.gen()).collect();
+    /// let y: SizedVec<Num<Bn256Fr>, N> = (0..N).map(|_| rng.gen()).collect();
+    /// let snark = ZkSip::<N>::generate(&g, &h, &s, &y);
+    /// ```
     pub fn generate(g: &EdwardsPoint<Fr>, h: &EdwardsPoint<Fr>, s: &SizedVec<Num<Fr>, L>, y: &SizedVec<Num<Fr>, L>) -> SnarkInfo<E> {
         let jubjub_params = JJParams::new();
         let mut rng = thread_rng();
