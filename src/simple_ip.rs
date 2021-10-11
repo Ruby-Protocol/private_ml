@@ -68,6 +68,14 @@ impl<const L: usize> FunctionalEncryption for Sip<L> {
 
     type EvaluationKey = SipDk;
 
+    /// Constructs a new `Sip<L>`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ruby::simple_ip::Sip;
+    /// let sip = Sip::<L>::new();
+    /// ```
     fn new() -> Self {
         let (msk, mpk) = Sip::generate_sec_key();
         Sip { msk, mpk }
@@ -156,19 +164,6 @@ impl<const L: usize> FunctionalEncryption for Sip<L> {
 }
 
 impl<const L: usize> Sip<L> {
-    /// Constructs a new `Sip<L>`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use ruby::simple_ip::Sip;
-    /// let sip = Sip::<L>::new();
-    /// ```
-    pub fn new() -> Sip<L> {
-        let (msk, mpk) = Sip::generate_sec_key();
-        Sip { msk, mpk }
-    }
-
     /// Generate a pair of master secret key and master public key.
     pub fn generate_sec_key() -> (SipMsk<L>, SipMpk<L>) {
         let mut rng = RandUtilsRAND::new();
@@ -183,21 +178,4 @@ impl<const L: usize> Sip<L> {
         }
         (msk, mpk)
     }
-
-    // pub fn encrypt(
-    //     &self,
-    //     x: &<Self as FunctionalEncryption>::EncryptData,
-    // ) -> <Sip<L> as FunctionalEncryption>::CipherText {
-    //     <Self as FunctionalEncryption>::encrypt(&self, x, None)
-    // }
-
-    // pub fn decrypt(
-    //     &self,
-    //     ciphers: &<Sip<L> as FunctionalEncryption>::CipherText,
-    //     dk: &<Sip<L> as FunctionalEncryption>::EvaluationKey,
-    //     y: &<Sip<L> as FunctionalEncryption>::EncryptData,
-    //     bound: &BigInt,
-    // ) -> Option<BigInt> {
-    //     <Self as FunctionalEncryption>::decrypt(&self, ciphers, y, dk, None, bound)
-    // }
 }
