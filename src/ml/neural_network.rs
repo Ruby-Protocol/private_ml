@@ -1,27 +1,28 @@
 use num_bigint::{BigInt};
 
-use crate::quadratic_sgp::{Sgp, SgpCipher};
+use crate::quadratic_sgp::{Sgp, SgpPlain, SgpCipher};
 use crate::math::matrix::{BigIntMatrix};
+use crate::traits::FunctionalEncryption;
 
 /// The neural network application in the following papers:
 ///
 /// \[MSHBM2019\] Marc, T., Stopar, M., Hartman, J., Bizjak, M., & Modic, J. (2019, September). Privacy-Enhanced Machine Learning with Functional Encryption. In European Symposium on Research in Computer Security (pp. 3-21). Springer, Cham.
 ///
 /// \[SGP2018\] Sans, E.D., Gay, R., Pointcheval, D.: Reading in the dark: Classifying encrypted digits with functional encryption. IACR Cryptology ePrint Archive 2018, 206, (2018).
-pub struct NeuralNetwork {
+pub struct NeuralNetwork<const L: usize> {
     pub p: BigIntMatrix,
     pub q: Vec<BigIntMatrix>,
     pub bound: BigInt,
-    sgp: Sgp 
+    sgp: Sgp<L> 
 }
 
-impl NeuralNetwork {
+impl<const L: usize> NeuralNetwork<L> {
 
     /// Constructs a new `NeuralNetwork` application. `p` is the projection matrix for dimensionality reduction.
     /// `q` is a vector of model matrices, each of which denotes a model for a binary prediction of a class. 
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// let mut rng = RandUtilsRng::new();
     /// let n = 10;
     /// let d = 5;
@@ -38,7 +39,7 @@ impl NeuralNetwork {
     /// ```
     pub fn new(p: &BigIntMatrix, q: &Vec<BigIntMatrix>) -> Self {
         let bound = BigInt::from(256);
-        let sgp = Sgp::new(p.n_rows); 
+        let sgp = Sgp::<L>::new(); 
         Self {
             p: p.clone(),
             q: q.clone(),
@@ -51,14 +52,15 @@ impl NeuralNetwork {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let data_low = -&service.bound;
     /// let data_high = service.bound.clone();
     /// let x: Vec<BigInt> = rng.sample_range_vec(n, &data_low, &data_high);
     /// let cipher = service.encrypt(&x); 
     /// ```
-    pub fn encrypt(&self, x: &[BigInt]) -> SgpCipher {
-        let cipher = self.sgp.encrypt(x, x);
+    pub fn encrypt(&self, x: &[BigInt; L]) -> SgpCipher<L> {
+        let plain = SgpPlain {x: x.clone(), y: x.clone()};
+        let cipher = self.sgp.encrypt(&plain);
         cipher
     }
 
@@ -66,10 +68,10 @@ impl NeuralNetwork {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let result = service.compute(&cipher); 
     /// ```
-    pub fn compute(&self, cipher: &SgpCipher) -> Vec<BigInt> {
+    pub fn compute(&self, cipher: &SgpCipher<L>) -> Vec<BigInt> {
         let new_cipher = self.sgp.project(cipher, &self.p);
         let mut res: Vec<BigInt> = Vec::with_capacity(self.q.len());
         

@@ -1,26 +1,13 @@
-//use lazy_static::lazy_static;
-//use miracl_core::bls12381::ecp;
 use miracl_core::bls12381::pair;
-//use miracl_core::bls12381::rom;
-/* use  miracl_core::bn254::big;
-use miracl_core::bn254::big::BIG;
-use miracl_core::bn254::ecp;
-use miracl_core::bn254::ecp::ECP;
-use miracl_core::bn254::ecp2::ECP2;
-use miracl_core::bn254::fp12::FP12;
-use miracl_core::bn254::pair;
-use miracl_core::bn254::rom; */
 use miracl_core::hash256::HASH256;
-//use miracl_core::rand::{RAND, RAND_impl};
 use num_bigint::{BigInt};
 use num_traits::{Num};
-//use rand::prelude::*;
-use std::convert::TryInto;
 
 use crate::define::{BigNum, G1, G2, GT, G1Vector, G2Vector, MB, CURVE_ORDER, MODULUS};
 use crate::math::matrix::BigIntMatrix2x2;
 use crate::utils::{baby_step_giant_step, hash_to_g1, hash_to_g2, reduce};
 use crate::utils::rand_utils::{RandUtilsRAND, Sample};
+use crate::traits::FunctionalEncryption;
 
 
 
@@ -32,11 +19,13 @@ use crate::utils::rand_utils::{RandUtilsRAND, Sample};
 ///
 /// ```
 /// use ruby::dmcfe_ip::Dmcfe; 
-/// let client = Dmcfe::new(0);
+/// use ruby::traits::FunctionalEncryption;
+/// const L: usize = 2;
+/// let client = Dmcfe::<L>::new();
 /// ```
 #[derive(Debug)]
 #[derive(Clone)]
-pub struct Dmcfe {
+pub struct Dmcfe<const L: usize> {
     /// Index of a client
     index: usize,
     /// Public key  
@@ -49,8 +38,18 @@ pub struct Dmcfe {
     s: [BigNum; 2],
 }
 
+/// Functional evaluation key
+#[derive(Debug)]
+pub struct DmcfeDecKey<const L: usize> {
+    key: G2Vector,
+    y: [BigNum; L],
+}
 
-impl Dmcfe {
+impl<const L: usize> FunctionalEncryption for Dmcfe<L> {
+    type CipherText = G1Vector;
+    type PlainData = [BigInt; L];
+    type FEKeyData = [BigInt; L];
+    type EvaluationKey = DmcfeDecKey<L>;
 
     /// Constructs a new `Dmcfe` for a client with specified `index`. 
     ///
@@ -58,9 +57,102 @@ impl Dmcfe {
     ///
     /// ```
     /// use ruby::dmcfe_ip::Dmcfe; 
-    /// let client = Dmcfe::new(0);
+    /// use ruby::traits::FunctionalEncryption;
+    /// const L: usize = 2;
+    /// let client = Dmcfe::<L>::new();
     /// ```
-    pub fn new(index: usize) -> Dmcfe {
+    fn new() -> Self {
+        Dmcfe::<L>::new_single(0) 
+    }
+
+    /// Encrypt a number, together with a label. Label should be the same for all clients. 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use ruby::dmcfe_ip::Dmcfe; 
+    /// let client = Dmcfe::new(0);
+    /// let x = BigInt::from(10);
+    /// let label = "dmcfe-label";
+    /// let cipher = client.encrypt(&x, label);
+    /// ``` 
+    fn encrypt(&self, x: &Self::PlainData) -> Self::CipherText {
+        self.encrypt_with_label(x, "dmcfe-label") 
+    }
+
+    /// Derive the functional evaluation key for a vector of numbers. Only used when there is a single client.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let y: Vec<BigInt> = ... // Construct a vector 
+    /// let fe_share = client.derive_fe_key(&y[..]); 
+    /// ```
+    fn derive_fe_key(&self, y: &Self::FEKeyData) -> Self::EvaluationKey {
+        let mut new_y: [BigNum; L] = [BigNum::new(); L];
+        let mut fe_key: G2Vector = vec![G2::new(); 2];
+        let mut hs: G2Vector = vec![G2::new(); 2];
+        let mut y_str = "".to_string();
+        for yi in y.iter() {
+            y_str = y_str + " " + &yi.to_str_radix(16);
+        }
+
+        for i in 0..2 {
+            let ex_label = format!("{} {}", i.to_string(), y_str);
+            hs[i] = hash_to_g2(&ex_label);
+            fe_key[i].inf();
+        }
+
+        for i in 0..y.len() {
+            let yi = reduce(&y[i], &MODULUS);
+            let yi = BigNum::fromstring(yi.to_str_radix(16));
+
+            for i in 0..2 {
+
+                let temp = BigNum::modmul(&yi, &self.s[i], &CURVE_ORDER);
+                let mut h = G2::generator();
+                h = h.mul(&temp);
+                fe_key[i].add(&h);
+            }
+            new_y[i] = yi;
+        }
+        DmcfeDecKey {
+            key: fe_key,
+            y: new_y
+        }
+    }
+
+    /// Decrypt a ciphertext with the functional evaluation key `dk`, associated with a specified label. The parameter `bound` is the absolute value bound for numbers used in the quadratic polynomial.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Following the example of `key_comb`
+    /// let bound = BigInt::from(100);
+    /// let xfy = Dmcfe::decrypt(&ciphers, &y[..], &dk, label, &bound); 
+    /// ```
+    fn decrypt(
+        &self,
+        ciphers: &Self::CipherText,
+        dk: &Self::EvaluationKey, 
+        bound: &BigInt,
+    ) -> Option<BigInt> {
+        self.decrypt_with_label(ciphers, dk, bound, "dmcfe-label")
+    }
+}
+
+impl<const L: usize> Dmcfe<L> {
+
+    /// Constructs a new `Dmcfe` for a client with specified `index`. 
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ruby::dmcfe_ip::Dmcfe; 
+    /// const L: usize = 2;
+    /// let client = Dmcfe::<L>::new_single(0);
+    /// ```
+    pub fn new_single(index: usize) -> Self {
         let mut rng = RandUtilsRAND::new();
         let client_sec_key = rng.sample(&(CURVE_ORDER));
 
@@ -86,7 +178,7 @@ impl Dmcfe {
     ///
     /// # Examples
     /// 
-    /// ```
+    /// ```ignore
     /// for i in 0..num_clients {
     ///     clients.push(Dmcfe::new(i));
     /// }
@@ -133,12 +225,14 @@ impl Dmcfe {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
+    /// use ruby::dmcfe_ip::Dmcfe; 
+    /// let client = Dmcfe::new(0);
     /// let x = BigInt::from(10);
     /// let label = "dmcfe-label";
     /// let cipher = client.encrypt(&x, label);
     /// ``` 
-    pub fn encrypt(&self, x: &BigInt, label: &str) -> G1 {
+    pub fn encrypt_single(&self, x: &BigInt, label: &str) -> G1 {
         let x = reduce(&x, &MODULUS);
         let x = BigNum::fromstring(x.to_str_radix(16));
         let mut cipher: G1 = G1::new();
@@ -158,10 +252,10 @@ impl Dmcfe {
     }
 
     /// Encrypt a vector fo numbers. Only used when there is a single client.
-    pub fn encrypt_vec(&self, x: &[BigInt], label: &str) -> G1Vector {
+    pub fn encrypt_with_label(&self, x: &[BigInt; L], label: &str) -> G1Vector {
         let mut ciphers: G1Vector = Vec::with_capacity(x.len());
         for i in 0..x.len() {
-            ciphers.push(self.encrypt(&(x[i]), label));
+            ciphers.push(self.encrypt_single(&(x[i]), label));
         }
         ciphers
     }
@@ -170,11 +264,11 @@ impl Dmcfe {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let y: Vec<BigInt> = ... // Construct a vector 
     /// let fe_share = client.derive_fe_key_share(&y[..]); 
     /// ```
-    pub fn derive_fe_key_share(&self, y: &[BigInt]) -> G2Vector {
+    pub fn derive_fe_key_share(&self, y: &[BigInt; L]) -> G2Vector {
         let mut fe_key_share: G2Vector = vec![G2::new(); 2];
         let mut hs: G2Vector = vec![G2::new(); 2];
         let mut y_str = "".to_string();
@@ -208,52 +302,16 @@ impl Dmcfe {
         fe_key_share
     }
     
-    /// Derive the functional evaluation key for a vector of numbers. Only used when there is a single client.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let y: Vec<BigInt> = ... // Construct a vector 
-    /// let fe_share = client.derive_fe_key(&y[..]); 
-    /// ```
-    pub fn derive_fe_key(&self, y: &[BigInt]) -> G2Vector {
-        let mut fe_key: G2Vector = vec![G2::new(); 2];
-        let mut hs: G2Vector = vec![G2::new(); 2];
-        let mut y_str = "".to_string();
-        for yi in y.iter() {
-            y_str = y_str + " " + &yi.to_str_radix(16);
-        }
-
-        for i in 0..2 {
-            let ex_label = format!("{} {}", i.to_string(), y_str);
-            hs[i] = hash_to_g2(&ex_label);
-            fe_key[i].inf();
-        }
-
-        for i in 0..y.len() {
-            let yi = reduce(&y[i], &MODULUS);
-            let yi = BigNum::fromstring(yi.to_str_radix(16));
-
-            for i in 0..2 {
-
-                let temp = BigNum::modmul(&yi, &self.s[i], &CURVE_ORDER);
-                let mut h = G2::generator();
-                h = h.mul(&temp);
-                fe_key[i].add(&h);
-            }
-        }
-        fe_key
-    }
-    
     /// Combining shares into the functional evaluation key.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// // fe_key: Vec<G2Vector>
     /// let dk = Dmcfe::key_comb(&fe_key);
     /// ```
-    pub fn key_comb(key_shares: &[G2Vector]) -> G2Vector {
+    pub fn key_comb(&self, key_shares: &[G2Vector], y: &[BigInt; L]) -> DmcfeDecKey<L> {
+        let mut new_y: [BigNum; L] = [BigNum::new(); L];
         let mut keys_sum: G2Vector = vec![G2::new(); 2];
 
         for i in 0..2 {
@@ -264,36 +322,42 @@ impl Dmcfe {
             for j in 0..2 {
                 keys_sum[j].add(&key_shares[i][j]);
             }
+
+            let yi = reduce(&y[i], &MODULUS);
+            let yi = BigNum::fromstring(yi.to_str_radix(16));
+            new_y[i] = yi;
         }
-        keys_sum
+        DmcfeDecKey {
+            key: keys_sum,
+            y: new_y
+        }
     }
 
     /// Decrypt a ciphertext with the functional evaluation key `dk`, associated with a specified label. The parameter `bound` is the absolute value bound for numbers used in the quadratic polynomial.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// // Following the example of `key_comb`
     /// let bound = BigInt::from(100);
     /// let xfy = Dmcfe::decrypt(&ciphers, &y[..], &dk, label, &bound); 
     /// ```
-    pub fn decrypt(
-        ciphers: &[G1],
-        y: &[BigInt],
-        dk: &G2Vector, 
-        label: &str,
+    pub fn decrypt_with_label(
+        &self,
+        ciphers: &G1Vector,
+        dk: &DmcfeDecKey<L>, 
         bound: &BigInt,
+        label: &str,
     ) -> Option<BigInt> {
-        let ylen: isize = y.len().try_into().unwrap();
+        let ylen: isize = L as isize;
 
         let (g1, mut ciphers_sum, mut cipher_i) = (G1::generator(), G1::new(), G1::new());
         let g2 = G2::generator();
 
         ciphers_sum.inf();
 
-        for i in 0..y.len() {
-            let yi = reduce(&y[i], &MODULUS);
-            let mut temp = BigNum::fromstring(yi.to_str_radix(16));
+        for i in 0..L {
+            let mut temp = dk.y[i].clone(); 
             cipher_i.copy(&ciphers[i]);
             temp.rmod(&CURVE_ORDER);
             cipher_i = cipher_i.mul(&temp);
@@ -309,7 +373,7 @@ impl Dmcfe {
         for i in 0..2 {
             let ex_label = format!("{} {}", i.to_string(), label);
             let h = hash_to_g1(&ex_label);
-            pair = pair::ate(&dk[i], &h);
+            pair = pair::ate(&dk.key[i], &h);
             pair = pair::fexp(&pair);
             t.mul(&pair);
         }

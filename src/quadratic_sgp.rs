@@ -1,19 +1,12 @@
 use miracl_core::bls12381::pair;
-/* use  miracl_core::bn254::big;
-use miracl_core::bn254::big::BIG;
-use miracl_core::bn254::ecp;
-use miracl_core::bn254::ecp::ECP;
-use miracl_core::bn254::ecp2::ECP2;
-use miracl_core::bn254::fp12::FP12;
-use miracl_core::bn254::pair;
-use miracl_core::bn254::rom; */
 use num_bigint::{BigInt};
 
 use crate::define::{BigNum, G1, G2, GT, G1Vector, G2Vector, CURVE_ORDER, MODULUS};
-
 use crate::math::matrix::{BigNumMatrix, BigIntMatrix, BigNumMatrix2x2, convert};
 use crate::utils::{reduce, baby_step_giant_step};
 use crate::utils::rand_utils::{RandUtilsRAND, Sample};
+use crate::traits::FunctionalEncryption;
+
 
 /// Functional encryption scheme for quadratic polynomials. Implements the following work:
 ///
@@ -25,11 +18,12 @@ use crate::utils::rand_utils::{RandUtilsRAND, Sample};
 /// 
 /// ```
 /// use ruby::quadratic_sgp::Sgp; 
-/// let sgp = Sgp::new(2);
+/// use ruby::traits::FunctionalEncryption;
+/// const L: usize = 2;
+/// let sgp = Sgp::<L>::new();
 /// ```
 #[derive(Debug)]
-pub struct Sgp {
-    n: usize,
+pub struct Sgp<const L: usize> {
     msk: SgpSecKey,
     pk: SgpPubKey
 }
@@ -48,13 +42,17 @@ pub struct SgpPubKey {
     g2t: G2Vector,
 }
 
+pub struct SgpPlain<const L: usize> {
+    pub x: [BigInt; L],
+    pub y: [BigInt; L]
+}
+
 /// Ciphertext
 #[derive(Debug)]
-pub struct SgpCipher {
+pub struct SgpCipher<const L: usize> {
     g1_mul_gamma: G1,
     a: G1Vector,
     b: G2Vector,
-    n: usize,
 }
 
 /// Functional evaluation key
@@ -64,49 +62,35 @@ pub struct SgpDecKey {
     f: BigNumMatrix,
 }
 
+impl<const L: usize> FunctionalEncryption for Sgp<L> {
+    type CipherText = SgpCipher<L>;
+    type PlainData = SgpPlain<L>;
+    type FEKeyData = BigIntMatrix;
+    type EvaluationKey = SgpDecKey;
 
-
-impl Sgp {
     /// Constructs a new `Sgp`. 
     ///
     /// # Examples
     /// 
     /// ```
     /// use ruby::quadratic_sgp::Sgp; 
-    /// let sgp = Sgp::new(2);
+    /// use ruby::traits::FunctionalEncryption;
+    /// const L: usize = 2;
+    /// let sgp = Sgp::<L>::new();
     /// ```
-    pub fn new(n: usize) -> Sgp {
-        let (msk, pk) = Sgp::generate_sec_key(n);
+    fn new() -> Sgp<L> {
+        let (msk, pk) = Sgp::<L>::generate_sec_key();
         Sgp {
-            n,
             msk,
             pk
         }
-    }
-
-    /// Generate a pair of master secret key and master public key.
-    pub fn generate_sec_key(n: usize) -> (SgpSecKey, SgpPubKey) {
-        let mut rng = RandUtilsRAND::new();
-        let msk = SgpSecKey {
-            s: rng.sample_vec(n, &(CURVE_ORDER)),
-            t: rng.sample_vec(n, &(CURVE_ORDER)),
-        };
-        let mut pk = SgpPubKey {
-            g1s: vec![G1::generator(); n],
-            g2t: vec![G2::generator(); n],
-        };
-        for i in 0..n {
-            pk.g1s[i] = pk.g1s[i].mul(&(msk.s[i]));
-            pk.g2t[i] = pk.g2t[i].mul(&(msk.t[i]));
-        }
-        (msk, pk)
     }
 
     /// Encrypt two vectors of numbers, resulting in a single ciphertext.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let mut x: Vec<BigInt> = Vec::with_capacity(2);
     /// let mut y: Vec<BigInt> = Vec::with_capacity(2);
     /// for i in 0..2 {
@@ -115,9 +99,10 @@ impl Sgp {
     /// }
     /// let cipher = sgp.encrypt(&x, &y);
     /// ```
-    pub fn encrypt(&self, x: &[BigInt], y: &[BigInt]) -> SgpCipher {
-        if x.len() != self.n ||  y.len() != self.n {
-            panic!("Malformed input: x.len ({}), y.len ({}), expected len ({})", x.len(), y.len(), self.n);
+    fn encrypt(&self, plain: &Self::PlainData) -> Self::CipherText {
+        let (x, y) = (&plain.x, &plain.y);
+        if x.len() != L ||  y.len() != L {
+            panic!("Malformed input: x.len ({}), y.len ({}), expected len ({})", x.len(), y.len(), L);
         }
 
         let mut rng = RandUtilsRAND::new();
@@ -130,10 +115,10 @@ impl Sgp {
         let mut g1_mul_gamma = G1::generator();
         g1_mul_gamma = g1_mul_gamma.mul(&gamma);
 
-        let mut a: G1Vector = vec![G1::generator(); self.n * 2];
-        let mut b: G2Vector = vec![G2::generator(); self.n * 2];
+        let mut a: G1Vector = vec![G1::generator(); L * 2];
+        let mut b: G2Vector = vec![G2::generator(); L * 2];
 
-        for i in 0..self.n {
+        for i in 0..L {
 
             let xi = reduce(&x[i], &MODULUS);
             let xi = BigNum::fromstring(xi.to_str_radix(16));
@@ -168,57 +153,19 @@ impl Sgp {
             g1_mul_gamma,
             a,
             b,
-            n: self.n
-        }
-    }
-
-    /// Project a ciphertext into another ciphertext with a projection matrix.
-    /// 
-    /// Read the paper for details.
-    pub fn project(&self, cipher: &SgpCipher, p: &BigIntMatrix) -> SgpCipher {
-        if self.n != p.n_rows || self.n != cipher.n {
-            panic!("Malformed input: self.n ({}), cipher.n ({}), P.dim ({} x {})", self.n, cipher.n, p.n_rows, p.n_cols);
-        }
-        let new_p = convert(p, &MODULUS);
-        let d = p.n_cols;
-        let mut new_a: G1Vector = vec![G1::generator(); d * 2];
-        let mut new_b: G2Vector = vec![G2::generator(); d * 2];
-        for i in 0..d {
-            new_a[i * 2].inf(); 
-            new_a[i * 2 + 1].inf();
-            new_b[i * 2].inf();
-            new_b[i * 2 + 1].inf();
-            for j in 0..self.n {
-                let tmp1 = cipher.a[j * 2].mul(new_p.get_element(j, i));
-                let tmp2 = cipher.a[j * 2 + 1].mul(new_p.get_element(j, i));
-                new_a[i * 2].add(&tmp1);
-                new_a[i * 2 + 1].add(&tmp2);
-
-                let tmp1 = cipher.b[j * 2].mul(new_p.get_element(j, i));
-                let tmp2 = cipher.b[j * 2 + 1].mul(new_p.get_element(j, i));
-                new_b[i * 2].add(&tmp1);
-                new_b[i * 2 + 1].add(&tmp2);
-            }
-        }
-
-        SgpCipher {
-            g1_mul_gamma: cipher.g1_mul_gamma.clone(),
-            a: new_a,
-            b: new_b,
-            n: d
         }
     }
 
     /// Derive functional evaluation key for a matrix of numbers.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// // Following the example of `encrypt`
     /// let a: [i64; 4] = [1; 4];
     /// let f = BigIntMatrix::new_ints(&a[..], 2, 2);
     /// let dk = sgp.derive_fe_key(&f);
     /// ```
-    pub fn derive_fe_key(&self, f: &BigIntMatrix) -> SgpDecKey {
+    fn derive_fe_key(&self, f: &Self::FEKeyData) -> Self::EvaluationKey {
         let new_f = convert(f, &MODULUS);
         let new_s = BigNumMatrix::new_bigints(&self.msk.s, 1, self.msk.s.len(), &CURVE_ORDER);
         let new_t = BigNumMatrix::new_bigints(&self.msk.t, self.msk.t.len(), 1, &CURVE_ORDER);
@@ -231,39 +178,17 @@ impl Sgp {
         }
     }
 
-    /// Derive functional evaluation key for a matrix of numbers, with a projection matrix.
-    ///
-    /// Read the paper for details.
-    pub fn derive_fe_key_projected(&self, f: &BigIntMatrix, p: &BigIntMatrix) -> SgpDecKey {
-        if self.n != p.n_rows || f.n_rows != f.n_cols || f.n_rows != p.n_cols {
-            panic!("Malformed input: f.dim ({} x {}), P.dim ({} x {})", f.n_rows, f.n_cols, p.n_rows, p.n_cols);
-        }
-        let new_f = convert(f, &MODULUS);
-        let new_p = convert(p, &MODULUS);
-        let new_s = BigNumMatrix::new_bigints(&self.msk.s, 1, self.msk.s.len(), &CURVE_ORDER);
-        let new_t = BigNumMatrix::new_bigints(&self.msk.t, 1, self.msk.t.len(), &CURVE_ORDER);
-        let proj_s = new_s.matmul(&new_p);
-        let proj_t = new_t.matmul(&new_p).transpose();
-
-        let exp = proj_s.matmul(&new_f);
-        let exp = exp.matmul(&proj_t);
-        let exp = exp.get_element(0, 0);
-        SgpDecKey {
-            key: (G2::generator()).mul(exp),
-            f: new_f 
-        }
-    }
 
     /// Decrypt a ciphertext with the functional evaluation key. The parameter `bound` is the absolute value bound for
     /// numbers used in the inner product.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// // Following the example of `derive_fe_key`
     /// let result = sgp.decrypt(&cipher, &dk, &BigInt::from(100)); 
     /// ```
-    pub fn decrypt(&self, ct: &SgpCipher, dk: &SgpDecKey, bound: &BigInt) -> Option<BigInt> {
+    fn decrypt(&self, ct: &Self::CipherText, dk: &Self::EvaluationKey, bound: &BigInt) -> Option<BigInt> {
         if ct.a.len() != dk.f.n_rows * 2 || ct.b.len() != dk.f.n_cols * 2 {
             panic!("Malformed input: a.len ({}), b.len ({}), f dimension ({} x {}).", ct.a.len() / 2, ct.b.len() / 2, dk.f.n_rows, dk.f.n_cols);
         }
@@ -296,5 +221,87 @@ impl Sgp {
 
         baby_step_giant_step(&out, &pair, &result_bound)
     }
+}
+
+
+impl<const L: usize> Sgp<L> {
+
+    /// Generate a pair of master secret key and master public key.
+    pub fn generate_sec_key() -> (SgpSecKey, SgpPubKey) {
+        let mut rng = RandUtilsRAND::new();
+        let msk = SgpSecKey {
+            s: rng.sample_vec(L, &(CURVE_ORDER)),
+            t: rng.sample_vec(L, &(CURVE_ORDER)),
+        };
+        let mut pk = SgpPubKey {
+            g1s: vec![G1::generator(); L],
+            g2t: vec![G2::generator(); L],
+        };
+        for i in 0..L {
+            pk.g1s[i] = pk.g1s[i].mul(&(msk.s[i]));
+            pk.g2t[i] = pk.g2t[i].mul(&(msk.t[i]));
+        }
+        (msk, pk)
+    }
+
+    /// Project a ciphertext into another ciphertext with a projection matrix.
+    /// 
+    /// Read the paper for details.
+    pub fn project(&self, cipher: &SgpCipher<L>, p: &BigIntMatrix) -> SgpCipher<L> {
+        if L != p.n_rows {
+            panic!("Malformed input: self.n ({}), cipher.n ({}), P.dim ({} x {})", L, L, p.n_rows, p.n_cols);
+        }
+        let new_p = convert(p, &MODULUS);
+        let d = p.n_cols;
+        let mut new_a: G1Vector = vec![G1::generator(); d * 2];
+        let mut new_b: G2Vector = vec![G2::generator(); d * 2];
+        for i in 0..d {
+            new_a[i * 2].inf(); 
+            new_a[i * 2 + 1].inf();
+            new_b[i * 2].inf();
+            new_b[i * 2 + 1].inf();
+            for j in 0..L {
+                let tmp1 = cipher.a[j * 2].mul(new_p.get_element(j, i));
+                let tmp2 = cipher.a[j * 2 + 1].mul(new_p.get_element(j, i));
+                new_a[i * 2].add(&tmp1);
+                new_a[i * 2 + 1].add(&tmp2);
+
+                let tmp1 = cipher.b[j * 2].mul(new_p.get_element(j, i));
+                let tmp2 = cipher.b[j * 2 + 1].mul(new_p.get_element(j, i));
+                new_b[i * 2].add(&tmp1);
+                new_b[i * 2 + 1].add(&tmp2);
+            }
+        }
+
+        SgpCipher {
+            g1_mul_gamma: cipher.g1_mul_gamma.clone(),
+            a: new_a,
+            b: new_b,
+        }
+    }
+
+    /// Derive functional evaluation key for a matrix of numbers, with a projection matrix.
+    ///
+    /// Read the paper for details.
+    pub fn derive_fe_key_projected(&self, f: &BigIntMatrix, p: &BigIntMatrix) -> SgpDecKey {
+        if L != p.n_rows || f.n_rows != f.n_cols || f.n_rows != p.n_cols {
+            panic!("Malformed input: f.dim ({} x {}), P.dim ({} x {})", f.n_rows, f.n_cols, p.n_rows, p.n_cols);
+        }
+        let new_f = convert(f, &MODULUS);
+        let new_p = convert(p, &MODULUS);
+        let new_s = BigNumMatrix::new_bigints(&self.msk.s, 1, self.msk.s.len(), &CURVE_ORDER);
+        let new_t = BigNumMatrix::new_bigints(&self.msk.t, 1, self.msk.t.len(), &CURVE_ORDER);
+        let proj_s = new_s.matmul(&new_p);
+        let proj_t = new_t.matmul(&new_p).transpose();
+
+        let exp = proj_s.matmul(&new_f);
+        let exp = exp.matmul(&proj_t);
+        let exp = exp.get_element(0, 0);
+        SgpDecKey {
+            key: (G2::generator()).mul(exp),
+            f: new_f 
+        }
+    }
+
 }
 

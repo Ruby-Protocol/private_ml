@@ -1,16 +1,9 @@
-/* use  miracl_core::bn254::big;
-use miracl_core::bn254::big::BIG;
-use miracl_core::bn254::ecp;
-use miracl_core::bn254::ecp::ECP;
-use miracl_core::bn254::ecp2::ECP2;
-use miracl_core::bn254::fp12::FP12;
-use miracl_core::bn254::pair;
-use miracl_core::bn254::rom; */
 use num_bigint::{BigInt, ToBigInt};
 
 use ruby::utils::{inner_product_result};
 use ruby::utils::rand_utils::{RandUtilsRng, Sample};
 use ruby::simple_ip::Sip;
+use ruby::traits::FunctionalEncryption;
 
 
 #[test]
@@ -41,7 +34,7 @@ fn test_sip() {
     println!("[SIP Derive FE Key]: {:.2?}", elapsed);
 
     let now = Instant::now();
-    let result = sip.decrypt(&cipher, &dk, &y, &BigInt::from(bound)); 
+    let result = sip.decrypt(&cipher, &dk, &BigInt::from(bound)); 
     let elapsed = now.elapsed();
     println!("[SIP Decrypt]: {:.2?}", elapsed);
 

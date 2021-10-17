@@ -93,7 +93,7 @@ impl<const L: usize> ZkSip<L> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// const N: usize = 1;
     /// let mut rng = thread_rng();
     /// let jubjub_params = JubJubBN256::new();

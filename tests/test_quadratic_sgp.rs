@@ -1,27 +1,21 @@
-/* use  miracl_core::bn254::big;
-use miracl_core::bn254::big::BIG;
-use miracl_core::bn254::ecp;
-use miracl_core::bn254::ecp::ECP;
-use miracl_core::bn254::ecp2::ECP2;
-use miracl_core::bn254::fp12::FP12;
-use miracl_core::bn254::pair;
-use miracl_core::bn254::rom; */
 use num_bigint::{BigInt, ToBigInt};
 
 use ruby::math::matrix::{BigIntMatrix};
 use ruby::utils::{quadratic_result};
 use ruby::utils::rand_utils::{RandUtilsRng, Sample};
-use ruby::quadratic_sgp::Sgp;
+use ruby::quadratic_sgp::{Sgp, SgpPlain};
+use ruby::traits::FunctionalEncryption;
 
 #[test]
 fn test_sgp_1() {
-    let sgp = Sgp::new(2);
+    const L: usize = 2;
+    let sgp = Sgp::<L>::new();
 
-    let mut x: Vec<BigInt> = Vec::with_capacity(2);
-    let mut y: Vec<BigInt> = Vec::with_capacity(2);
+    let mut x: [BigInt; L] = Default::default();
+    let mut y: [BigInt; L] = Default::default();
     for i in 0..2 {
-        x.push(BigInt::from(i));
-        y.push(BigInt::from(i+1));
+        x[i] = BigInt::from(i);
+        y[i] = BigInt::from(i+1);
     }
 
     let a: [i64; 4] = [1; 4];
@@ -29,7 +23,8 @@ fn test_sgp_1() {
     let plain_result = quadratic_result(&x, &y, &f);
     println!("Groud truth: {:?}", plain_result);
 
-    let cipher = sgp.encrypt(&x, &y);
+    let plain = SgpPlain {x, y};
+    let cipher = sgp.encrypt(&plain);
     let dk = sgp.derive_fe_key(&f);
     let result = sgp.decrypt(&cipher, &dk, &BigInt::from(100)); 
 
@@ -47,16 +42,17 @@ fn test_sgp_2() {
     let low = (-bound).to_bigint().unwrap();
     let high = bound.to_bigint().unwrap();
 
-    let sgp = Sgp::new(L);
+    let sgp = Sgp::<L>::new();
 
-    let x: Vec<BigInt> = rng.sample_range_vec(L, &low, &high); 
-    let y: Vec<BigInt> = rng.sample_range_vec(L, &low, &high);
+    let x: [BigInt; L] = rng.sample_range_array::<L>(&low, &high); 
+    let y: [BigInt; L] = rng.sample_range_array::<L>(&low, &high);
     let f = BigIntMatrix::new_random(L, L, &low, &high);
     let plain_result = quadratic_result(&x, &y, &f);
     println!("Groud truth: {:?}", plain_result);
 
     let now = Instant::now();
-    let cipher = sgp.encrypt(&x, &y);
+    let plain = SgpPlain {x, y};
+    let cipher = sgp.encrypt(&plain);
     let elapsed = now.elapsed();
     println!("[Quadratic Encrypt]: {:.2?}", elapsed);
 

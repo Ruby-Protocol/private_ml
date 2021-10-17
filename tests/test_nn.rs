@@ -28,6 +28,7 @@ use ruby::ml::neural_network::NeuralNetwork;
     #[test]
     fn test_neural_network() {
         let mut rng = RandUtilsRng::new();
+        const L: usize = 10;
         let n = 10;
         let d = 5;
 
@@ -46,7 +47,7 @@ use ruby::ml::neural_network::NeuralNetwork;
 
         let data_low = -&service.bound;
         let data_high = service.bound.clone();
-        let x: Vec<BigInt> = rng.sample_range_vec(n, &data_low, &data_high);
+        let x: [BigInt; L] = rng.sample_range_array::<L>(&data_low, &data_high);
 
         let cipher = service.encrypt(&x);
         let result = service.compute(&cipher);

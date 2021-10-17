@@ -43,7 +43,7 @@ impl ZkDlog {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let mut rng = thread_rng();
     /// let jubjub_params = JubJubBN256::new();
     /// let g = EdwardsPoint::<Bn256Fr>::rand(&mut rng, &jubjub_params).mul(Num::from(8), &jubjub_params);

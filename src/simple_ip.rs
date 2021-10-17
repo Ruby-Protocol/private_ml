@@ -1,20 +1,9 @@
-//use lazy_static::lazy_static;
-//use miracl_core::bls12381::ecp;
-//use miracl_core::bls12381::rom;
-/* use  miracl_core::bn254::big;
-use miracl_core::bn254::big::BIG;
-use miracl_core::bn254::ecp;
-use miracl_core::bn254::ecp::ECP;
-use miracl_core::bn254::ecp2::ECP2;
-use miracl_core::bn254::fp12::FP12;
-use miracl_core::bn254::pair;
-use miracl_core::bn254::rom; */
-//use miracl_core::rand::{RAND, RAND_impl};
 use num_bigint::{BigInt};
 
 use crate::define::{BigNum, G1, CURVE_ORDER, MODULUS};
 use crate::utils::{baby_step_giant_step_g1, reduce};
 use crate::utils::rand_utils::{RandUtilsRAND, Sample};
+use crate::traits::FunctionalEncryption;
 
 
 
@@ -25,7 +14,9 @@ use crate::utils::rand_utils::{RandUtilsRAND, Sample};
 /// # Examples
 /// 
 /// ```
+/// use crate::ruby::traits::FunctionalEncryption;
 /// use ruby::simple_ip::Sip; 
+/// const L: usize = 20;
 /// let sip = Sip::<L>::new();
 /// ```
 #[derive(Debug)]
@@ -57,22 +48,29 @@ pub struct SipCipher<const L: usize> {
 
 /// Functional evaluation key
 #[derive(Debug)]
-pub struct SipDk {
+pub struct SipDk<const L: usize> {
+    y: [BigNum; L],
     dk: BigNum
 }
 
 
+impl<const L: usize> FunctionalEncryption for Sip<L> {
+    type CipherText = SipCipher<L>;
+    type PlainData = [BigInt; L];
+    type FEKeyData = [BigInt; L];
+    type EvaluationKey = SipDk<L>;
 
-impl<const L: usize> Sip<L> {
     /// Constructs a new `Sip<L>`.
     ///
     /// # Examples
     /// 
     /// ```
+    /// use crate::ruby::traits::FunctionalEncryption;
     /// use ruby::simple_ip::Sip; 
+    /// const L: usize = 20;
     /// let sip = Sip::<L>::new();
     /// ```
-    pub fn new() -> Sip<L> {
+    fn new() -> Sip<L> {
         let (msk, mpk) = Sip::generate_sec_key();
         Sip {
             msk,
@@ -80,26 +78,11 @@ impl<const L: usize> Sip<L> {
         }
     }
 
-    /// Generate a pair of master secret key and master public key.
-    pub fn generate_sec_key() -> (SipMsk<L>, SipMpk<L>) {
-        let mut rng = RandUtilsRAND::new();
-        let msk = SipMsk {
-            s: rng.sample_array::<L>(&(CURVE_ORDER)),
-        };
-        let mut mpk = SipMpk::<L> {
-            v: array_init::array_init(|_| G1::generator()),
-        };
-        for i in 0..L {
-            mpk.v[i] = mpk.v[i].mul(&(msk.s[i]));
-        }
-        (msk, mpk)
-    }
-
     /// Encrypt a vector of numbers.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let mut rng = RandUtilsRng::new(); 
     /// const L: usize = 20;
     /// let bound: i32 = 100;
@@ -109,7 +92,7 @@ impl<const L: usize> Sip<L> {
     /// let x: [BigInt; L] = rng.sample_range_array::<L>(&low, &high); 
     /// let cipher = sip.encrypt(&x);
     /// ```
-    pub fn encrypt(&self, x: &[BigInt; L]) -> SipCipher<L> {
+    fn encrypt(&self, x: &Self::PlainData) -> Self::CipherText {
         let mut rng = RandUtilsRAND::new();
 
         let r = rng.sample(&(CURVE_ORDER));
@@ -127,24 +110,27 @@ impl<const L: usize> Sip<L> {
             c
         }
     }
-   
+
     /// Derive functional evaluation key for a vector of numbers.
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// // Following the example of `encrypt`
     /// let y: [BigInt; L] = rng.sample_range_array::<L>(&low, &high); 
     /// let dk = sip.derive_fe_key(&y);
     /// ```
-    pub fn derive_fe_key(&self, y: &[BigInt; L]) -> SipDk {
+    fn derive_fe_key(&self, y: &Self::FEKeyData) -> Self::EvaluationKey {
+        let mut new_y: [BigNum; L] = [BigNum::new(); L];
         let mut dk: BigNum = BigNum::new();
         for i in 0..L {
             let yi = reduce(&y[i], &MODULUS);
             let yi = BigNum::fromstring(yi.to_str_radix(16));
             dk.add(&BigNum::modmul(&yi, &self.msk.s[i], &CURVE_ORDER));
             dk.rmod(&CURVE_ORDER);
+            new_y[i] = yi;
         }
         SipDk {
+            y: new_y,
             dk
         }
     }
@@ -153,17 +139,19 @@ impl<const L: usize> Sip<L> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// // Following the example of `derive_fe_key`
-    /// let result = sip.decrypt(&cipher, &dk, &y, &BigInt::from(bound)); 
+    /// let result = sip.decrypt(&cipher, &y, &dk, &BigInt::from(bound)); 
     /// ```
-    pub fn decrypt(&self, ct: &SipCipher<L>, dk: &SipDk, y: &[BigInt; L], bound: &BigInt) -> Option<BigInt> {
+    //fn decrypt(&self, ct: &Self::CipherText, y: &Self::FEKeyData, dk: &Self::EvaluationKey, bound: &BigInt) -> Option<BigInt> {
+    fn decrypt(&self, ct: &Self::CipherText, dk: &Self::EvaluationKey, bound: &BigInt) -> Option<BigInt> {
         let mut res = G1::new();
         for i in 0..L {
-            let yi = reduce(&y[i], &MODULUS);
-            let yi = BigNum::fromstring(yi.to_str_radix(16));
+            //let yi = reduce(&dk.y[i], &MODULUS);
+            //let yi = BigNum::fromstring(yi.to_str_radix(16));
 
-            res.add(&ct.c[i].mul(&yi));
+            //res.add(&ct.c[i].mul(&yi));
+            res.add(&ct.c[i].mul(&(dk.y[i])));
         }
         res.sub(&ct.c0.mul(&dk.dk));
 
@@ -174,6 +162,27 @@ impl<const L: usize> Sip<L> {
 
         baby_step_giant_step_g1(&res, &G1::generator(), &result_bound)
     }
+
+}
+
+
+impl<const L: usize> Sip<L> {
+
+    /// Generate a pair of master secret key and master public key.
+    pub fn generate_sec_key() -> (SipMsk<L>, SipMpk<L>) {
+        let mut rng = RandUtilsRAND::new();
+        let msk = SipMsk {
+            s: rng.sample_array::<L>(&(CURVE_ORDER)),
+        };
+        let mut mpk = SipMpk::<L> {
+            v: array_init::array_init(|_| G1::generator()),
+        };
+        for i in 0..L {
+            mpk.v[i] = mpk.v[i].mul(&(msk.s[i]));
+        }
+        (msk, mpk)
+    }
+
 }
 
 

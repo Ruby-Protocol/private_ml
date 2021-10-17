@@ -14,3 +14,4 @@ pub mod quadratic_sgp;
 pub mod simple_ip;
 pub mod ml;
 pub mod zk;
+pub mod traits;
