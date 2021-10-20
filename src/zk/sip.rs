@@ -21,7 +21,7 @@ use super::SnarkInfo;
 
 type Fr = fawkes_crypto::engines::bn256::Fr;
 type E = Bn256;
-type JJParams = JubJubBN256;
+type JjParams = JubJubBN256;
 
 
 #[derive(Clone, Debug)]
@@ -64,7 +64,7 @@ pub struct ZkSip<const L: usize>;
 impl<const L: usize> ZkSip<L> {
 
     fn circuit<C: CS<Fr = Fr>>(public: CSipProofPublic<C, L>, secret: CSipProofSecret<C, L>) {
-        let jubjub_params = JJParams::new();
+        let jubjub_params = JjParams::new();
         let cs = secret.get_cs();
 
         let mut ys = CNum::<C>::from_const(cs, &Num::<Fr>::ZERO); 
@@ -105,7 +105,7 @@ impl<const L: usize> ZkSip<L> {
     /// let snark = ZkSip::<N>::generate(&g, &h, &s, &y);
     /// ```
     pub fn generate(g: &EdwardsPoint<Fr>, h: &EdwardsPoint<Fr>, s: &SizedVec<Num<Fr>, L>, y: &SizedVec<Num<Fr>, L>) -> SnarkInfo<E> {
-        let jubjub_params = JJParams::new();
+        let jubjub_params = JjParams::new();
         let mut rng = thread_rng();
 
         let r: Num<Fr> = rng.gen();
@@ -120,7 +120,7 @@ impl<const L: usize> ZkSip<L> {
 
         let mut ys = Num::<Fr>::ZERO; 
         for i in 0..L {
-            ys = ys + (y[i] * s[i]);
+            ys += y[i] * s[i];
         }
 
         let c1 = g.mul(ys.to_other_reduced(), &jubjub_params)
@@ -131,8 +131,8 @@ impl<const L: usize> ZkSip<L> {
             .collect::<SizedVec<_, L>>();
 
         let sip_proof_public = SipProofPublic {
-            g: g.clone(),
-            h: h.clone(),
+            g: *g,
+            h: *h,
             c1,
             c2,
             v
@@ -146,7 +146,7 @@ impl<const L: usize> ZkSip<L> {
         let bellman_params = setup::<E, _, _, _>(ZkSip::<L>::circuit);
         let (inputs, snark_proof) = prover::prove(&bellman_params, &sip_proof_public, &sip_proof_secret, ZkSip::<L>::circuit);
         SnarkInfo::<E> {
-            inputs: inputs,
+            inputs,
             proof: snark_proof,
             vk: bellman_params.get_vk()
         }

@@ -13,7 +13,7 @@ pub type BigNum = BIG;
 pub type DBigNum = DBIG;
 pub type G1 = ECP;
 pub type G2 = ECP2;
-pub type GT = FP12;
+pub type Gt = FP12;
 
 pub const MB: usize = big::MODBYTES as usize;
 

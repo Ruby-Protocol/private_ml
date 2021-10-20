@@ -23,12 +23,18 @@ trait RandUtils {
 }
 
 
-pub struct RandUtilsRAND {
+pub struct RandUtilsRand {
     // Keep an internal RNG member to avoid having to initiate a new one in every functionality call 
     pub rng: RAND_impl
 }
 
-impl RandUtilsRAND {
+impl Default for RandUtilsRand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RandUtilsRand {
     pub fn new() -> Self {
         Self {
             rng: Self::get_rng()
@@ -36,14 +42,14 @@ impl RandUtilsRAND {
     }
 }
 
-impl RandUtils for RandUtilsRAND {
+impl RandUtils for RandUtilsRand {
     type Kernel = RAND_impl;
 
     
     fn get_rng() -> Self::Kernel {
         let mut seed: [u8; 32] = [0; 32];
         rand::thread_rng().fill_bytes(&mut seed);
-        return Self::get_seeded_rng(&seed);
+        Self::get_seeded_rng(&seed)
     }
 
     fn get_seeded_rng(seed: &[u8; 32]) -> Self::Kernel {
@@ -55,7 +61,7 @@ impl RandUtils for RandUtilsRAND {
 
 }
 
-impl Sample<BigNum> for RandUtilsRAND {
+impl Sample<BigNum> for RandUtilsRand {
     fn sample(&mut self, modulus: &BigNum) -> BigNum {
         BigNum::randomnum(modulus, &mut self.rng)
     }
@@ -91,6 +97,12 @@ pub struct RandUtilsRng {
     pub rng: StdRng 
 }
 
+impl Default for RandUtilsRng {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RandUtilsRng {
     pub fn new() -> Self {
         Self {
@@ -103,12 +115,11 @@ impl RandUtils for RandUtilsRng {
     type Kernel = StdRng;
 
     fn get_rng() -> Self::Kernel {
-        return StdRng::from_entropy();
+        StdRng::from_entropy()
     }
 
     fn get_seeded_rng(seed: &[u8; 32]) -> Self::Kernel {
-        let rng = StdRng::from_seed(*seed);
-        rng
+        StdRng::from_seed(*seed)
     }
 
 }

@@ -3,10 +3,10 @@ use miracl_core::hash256::HASH256;
 use num_bigint::{BigInt};
 use num_traits::{Num};
 
-use crate::define::{BigNum, G1, G2, GT, G1Vector, G2Vector, MB, CURVE_ORDER, MODULUS};
+use crate::define::{BigNum, G1, G2, Gt, G1Vector, G2Vector, MB, CURVE_ORDER, MODULUS};
 use crate::math::matrix::BigIntMatrix2x2;
 use crate::utils::{baby_step_giant_step, hash_to_g1, hash_to_g2, reduce};
-use crate::utils::rand_utils::{RandUtilsRAND, Sample};
+use crate::utils::rand_utils::{RandUtilsRand, Sample};
 use crate::traits::FunctionalEncryption;
 
 
@@ -153,7 +153,7 @@ impl<const L: usize> Dmcfe<L> {
     /// let client = Dmcfe::<L>::new_single(0);
     /// ```
     pub fn new_single(index: usize) -> Self {
-        let mut rng = RandUtilsRAND::new();
+        let mut rng = RandUtilsRand::new();
         let client_sec_key = rng.sample(&(CURVE_ORDER));
 
         let client_pub_key = G1::generator();
@@ -357,7 +357,7 @@ impl<const L: usize> Dmcfe<L> {
         ciphers_sum.inf();
 
         for i in 0..L {
-            let mut temp = dk.y[i].clone(); 
+            let mut temp = dk.y[i]; 
             cipher_i.copy(&ciphers[i]);
             temp.rmod(&CURVE_ORDER);
             cipher_i = cipher_i.mul(&temp);
@@ -367,8 +367,8 @@ impl<const L: usize> Dmcfe<L> {
         let mut s = pair::ate(&g2, &ciphers_sum);
         s = pair::fexp(&s);
 
-        let mut t = GT::new();
-        let mut pair: GT;
+        let mut t = Gt::new();
+        let mut pair: Gt;
         t.one();
         for i in 0..2 {
             let ex_label = format!("{} {}", i.to_string(), label);

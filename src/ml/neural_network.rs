@@ -37,12 +37,12 @@ impl<const L: usize> NeuralNetwork<L> {
     /// }
     /// let service = NeuralNetwork::new(&p, &q); 
     /// ```
-    pub fn new(p: &BigIntMatrix, q: &Vec<BigIntMatrix>) -> Self {
+    pub fn new(p: &BigIntMatrix, q: &[BigIntMatrix]) -> Self {
         let bound = BigInt::from(256);
         let sgp = Sgp::<L>::new(); 
         Self {
             p: p.clone(),
-            q: q.clone(),
+            q: q.to_owned(),
             bound,
             sgp
         }
@@ -60,8 +60,7 @@ impl<const L: usize> NeuralNetwork<L> {
     /// ```
     pub fn encrypt(&self, x: &[BigInt; L]) -> SgpCipher<L> {
         let plain = SgpPlain {x: x.clone(), y: x.clone()};
-        let cipher = self.sgp.encrypt(&plain);
-        cipher
+        self.sgp.encrypt(&plain)
     }
 
     /// Compute the one-laye neural network model. 

@@ -2,7 +2,7 @@ use num_bigint::{BigInt};
 
 use crate::define::{BigNum, G1, CURVE_ORDER, MODULUS};
 use crate::utils::{baby_step_giant_step_g1, reduce};
-use crate::utils::rand_utils::{RandUtilsRAND, Sample};
+use crate::utils::rand_utils::{RandUtilsRand, Sample};
 use crate::traits::FunctionalEncryption;
 
 
@@ -93,7 +93,7 @@ impl<const L: usize> FunctionalEncryption for Sip<L> {
     /// let cipher = sip.encrypt(&x);
     /// ```
     fn encrypt(&self, x: &Self::PlainData) -> Self::CipherText {
-        let mut rng = RandUtilsRAND::new();
+        let mut rng = RandUtilsRand::new();
 
         let r = rng.sample(&(CURVE_ORDER));
         let c0 = G1::generator().mul(&r);
@@ -170,7 +170,7 @@ impl<const L: usize> Sip<L> {
 
     /// Generate a pair of master secret key and master public key.
     pub fn generate_sec_key() -> (SipMsk<L>, SipMpk<L>) {
-        let mut rng = RandUtilsRAND::new();
+        let mut rng = RandUtilsRand::new();
         let msk = SipMsk {
             s: rng.sample_array::<L>(&(CURVE_ORDER)),
         };

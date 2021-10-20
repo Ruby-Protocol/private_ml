@@ -5,7 +5,7 @@ use num_integer::Integer;
 use std::convert::TryInto;
 
 use crate::utils::{reduce};
-use crate::utils::rand_utils::{RandUtilsRng, RandUtilsRAND, Sample};
+use crate::utils::rand_utils::{RandUtilsRng, RandUtilsRand, Sample};
 use crate::define::{BigNum};
 
 
@@ -37,7 +37,7 @@ impl BigNumMatrix {
             data: vec![BigNum::new(); n_rows * n_cols],
             n_rows,
             n_cols,
-            modulus: modulus.clone()
+            modulus: *modulus
         }
     }
 
@@ -52,7 +52,7 @@ impl BigNumMatrix {
             data,
             n_rows,
             n_cols,
-            modulus: modulus.clone()
+            modulus: *modulus
         }
     }
 
@@ -66,7 +66,7 @@ impl BigNumMatrix {
             data,
             n_rows,
             n_cols,
-            modulus: modulus.clone()
+            modulus: *modulus
         }
     }
 
@@ -117,6 +117,12 @@ pub struct BigNumMatrix2x2 {
     data: Vec<BigNum>,
 }
 
+impl Default for BigNumMatrix2x2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BigNumMatrix2x2 {
     pub fn new() -> Self {
         Self {
@@ -131,7 +137,7 @@ impl BigNumMatrix2x2 {
     }
 
     pub fn new_random(modulus: &BigNum) -> Self {
-        let mut rng = RandUtilsRAND::new();
+        let mut rng = RandUtilsRand::new();
         Self {
             data: rng.sample_vec(4, modulus),
         }
@@ -271,6 +277,12 @@ impl BigIntMatrix {
 #[derive(Clone)]
 pub struct BigIntMatrix2x2 {
     data: Vec<BigInt>,
+}
+
+impl Default for BigIntMatrix2x2 {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BigIntMatrix2x2 {

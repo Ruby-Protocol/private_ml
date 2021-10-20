@@ -16,6 +16,12 @@ pub struct DiseasePrediction<'a> {
     fe: Dmcfe<8>,
 }
 
+impl<'a> Default for DiseasePrediction<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> DiseasePrediction<'a> {
 
     /// Constructs a new `DiseasePrediction` application.
@@ -58,8 +64,7 @@ impl<'a> DiseasePrediction<'a> {
         for i in 0..8 {
             int_x[i] = BigInt::from((x[i] * self.scale).round() as i64);
         }
-        let ciphers = self.fe.encrypt(&int_x);
-        ciphers
+        self.fe.encrypt(&int_x)
     }
 
     /// Compute the inner product of client's input with the two parameter vectors in disease prediction.

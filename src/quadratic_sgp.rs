@@ -1,10 +1,10 @@
 use miracl_core::bls12381::pair;
 use num_bigint::{BigInt};
 
-use crate::define::{BigNum, G1, G2, GT, G1Vector, G2Vector, CURVE_ORDER, MODULUS};
+use crate::define::{BigNum, G1, G2, Gt, G1Vector, G2Vector, CURVE_ORDER, MODULUS};
 use crate::math::matrix::{BigNumMatrix, BigIntMatrix, BigNumMatrix2x2, convert};
 use crate::utils::{reduce, baby_step_giant_step};
-use crate::utils::rand_utils::{RandUtilsRAND, Sample};
+use crate::utils::rand_utils::{RandUtilsRand, Sample};
 use crate::traits::FunctionalEncryption;
 
 
@@ -105,7 +105,7 @@ impl<const L: usize> FunctionalEncryption for Sgp<L> {
             panic!("Malformed input: x.len ({}), y.len ({}), expected len ({})", x.len(), y.len(), L);
         }
 
-        let mut rng = RandUtilsRAND::new();
+        let mut rng = RandUtilsRand::new();
 
         let w = BigNumMatrix2x2::new_random(&(CURVE_ORDER));
         let mut w_inv = w.invmod(&(CURVE_ORDER));
@@ -193,9 +193,9 @@ impl<const L: usize> FunctionalEncryption for Sgp<L> {
             panic!("Malformed input: a.len ({}), b.len ({}), f dimension ({} x {}).", ct.a.len() / 2, ct.b.len() / 2, dk.f.n_rows, dk.f.n_cols);
         }
 
-        let mut out: GT = pair::ate(&dk.key, &ct.g1_mul_gamma);
+        let mut out: Gt = pair::ate(&dk.key, &ct.g1_mul_gamma);
         out = pair::fexp(&out);
-        let (mut proj0, mut proj1): (GT, GT);
+        let (mut proj0, mut proj1): (Gt, Gt);
         for i in 0..dk.f.n_rows {
             for j in 0..dk.f.n_cols {
                 proj0 = pair::ate(&ct.b[j*2], &ct.a[i*2]);
@@ -228,7 +228,7 @@ impl<const L: usize> Sgp<L> {
 
     /// Generate a pair of master secret key and master public key.
     pub fn generate_sec_key() -> (SgpSecKey, SgpPubKey) {
-        let mut rng = RandUtilsRAND::new();
+        let mut rng = RandUtilsRand::new();
         let msk = SgpSecKey {
             s: rng.sample_vec(L, &(CURVE_ORDER)),
             t: rng.sample_vec(L, &(CURVE_ORDER)),

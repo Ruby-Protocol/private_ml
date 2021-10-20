@@ -26,11 +26,11 @@ use super::SnarkInfo;
 
 type Fr = fawkes_crypto::engines::bn256::Fr;
 type E = Bn256;
-type JJParams = JubJubBN256;
+type JjParams = JubJubBN256;
 
 
 #[derive(Clone, Debug)]
-pub struct QPProofPublic<Fr: PrimeField, const L: usize> {
+pub struct QpProofPublic<Fr: PrimeField, const L: usize> {
     pub g1: EdwardsPoint<Fr>,
     pub h1: EdwardsPoint<Fr>,
     pub c1: EdwardsPoint<Fr>,
@@ -40,8 +40,8 @@ pub struct QPProofPublic<Fr: PrimeField, const L: usize> {
 }
 
 #[derive(Clone, Signal)]
-#[Value = "QPProofPublic<C::Fr, L>"]
-pub struct CQPProofPublic<C: CS, const L: usize> {
+#[Value = "QpProofPublic<C::Fr, L>"]
+pub struct CqpProofPublic<C: CS, const L: usize> {
     pub g1: CEdwardsPoint<C>,
     pub h1: CEdwardsPoint<C>,
     pub c1: CEdwardsPoint<C>,
@@ -51,7 +51,7 @@ pub struct CQPProofPublic<C: CS, const L: usize> {
 }
 
 #[derive(Clone, Debug)]
-pub struct QPProofSecret<Fr: PrimeField, const L: usize> {
+pub struct QpProofSecret<Fr: PrimeField, const L: usize> {
     pub r: Num<Fr>,
     pub f_st: Num<Fr>,
     pub s: SizedVec<Num<Fr>, L>,
@@ -59,8 +59,8 @@ pub struct QPProofSecret<Fr: PrimeField, const L: usize> {
 }
 
 #[derive(Clone, Signal)]
-#[Value = "QPProofSecret<C::Fr, L>"]
-pub struct CQPProofSecret<C: CS, const L: usize> {
+#[Value = "QpProofSecret<C::Fr, L>"]
+pub struct CqpProofSecret<C: CS, const L: usize> {
     pub r: CNum<C>,
     pub f_st: CNum<C>,
     pub s: SizedVec<CNum<C>, L>,
@@ -72,8 +72,8 @@ pub struct ZkQp<const L: usize>;
 
 impl<const L: usize> ZkQp<L> {
 
-    fn circuit<C: CS<Fr = Fr>>(public: CQPProofPublic<C, L>, secret: CQPProofSecret<C, L>) {
-        let jubjub_params = JJParams::new();
+    fn circuit<C: CS<Fr = Fr>>(public: CqpProofPublic<C, L>, secret: CqpProofSecret<C, L>) {
+        let jubjub_params = JjParams::new();
 
         let f_st_bits = c_into_bits_le_strict(&secret.f_st);
         let r_bits = c_into_bits_le_strict(&secret.r);
@@ -116,7 +116,7 @@ impl<const L: usize> ZkQp<L> {
     /// let snark = ZkQp::<N>::generate(&g1, &h1, &s, &t, &bigint_f);
     /// ```
     pub fn generate(g1: &EdwardsPoint<Fr>, h1: &EdwardsPoint<Fr>, s: &SizedVec<Num<Fr>, L>, t: &SizedVec<Num<Fr>, L>, f: &BigIntMatrix) -> SnarkInfo<E> {
-        let jubjub_params = JJParams::new();
+        let jubjub_params = JjParams::new();
         let mut rng = thread_rng();
 
         let r: Num<Fr> = rng.gen();
@@ -139,15 +139,15 @@ impl<const L: usize> ZkQp<L> {
             .map(|ti| g1.mul(ti.to_other_reduced(), &jubjub_params))
             .collect::<SizedVec<_, L>>();
 
-        let qp_proof_public = QPProofPublic {
-            g1: g1.clone(),
-            h1: h1.clone(),
+        let qp_proof_public = QpProofPublic {
+            g1: *g1,
+            h1: *h1,
             c1,
             c2,
             c3,
             c4
         };
-        let qp_proof_secret = QPProofSecret {
+        let qp_proof_secret = QpProofSecret {
             r,
             f_st,
             s: s.clone(),
@@ -157,7 +157,7 @@ impl<const L: usize> ZkQp<L> {
         let bellman_params = setup::<E, _, _, _>(ZkQp::<L>::circuit);
         let (inputs, snark_proof) = prover::prove(&bellman_params, &qp_proof_public, &qp_proof_secret, ZkQp::<L>::circuit);
         SnarkInfo::<E> {
-            inputs: inputs,
+            inputs,
             proof: snark_proof,
             vk: bellman_params.get_vk()
         }

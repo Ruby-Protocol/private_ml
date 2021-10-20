@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use num_traits::Num;
 use crate::num_traits::Zero;
 
-use crate::define::{BigNum, G1, G2, GT, CURVE_ORDER, MODULUS};
+use crate::define::{BigNum, G1, G2, Gt, CURVE_ORDER, MODULUS};
 use crate::math::matrix::{BigIntMatrix};
 
 //pub fn get_rng() -> impl RAND {
@@ -51,16 +51,16 @@ pub fn hash_to_g2(data: &str) -> G2 {
 pub fn reduce(x: &BigInt, m: &BigInt) -> BigInt {
     let mut y = x % m;
     if y.sign() == Sign::Minus {
-        y = y + m;
+        y += m;
     }
     y
 }
 
 
 use std::ops::Add;
-pub fn baby_step_giant_step(h: &GT, g: &GT, bound: &BigNum) -> Option<BigInt> {
+pub fn baby_step_giant_step(h: &Gt, g: &Gt, bound: &BigNum) -> Option<BigInt> {
     let mut table = HashMap::new();
-    let mut pow_zero = GT::new();
+    let mut pow_zero = Gt::new();
     pow_zero.one();
     if pow_zero.equals(&h) {
         return Some(BigInt::from(0));
@@ -72,7 +72,7 @@ pub fn baby_step_giant_step(h: &GT, g: &GT, bound: &BigNum) -> Option<BigInt> {
     let m = BigNum::fromstring(temp.to_str_radix(16));
 
     // precompute the table
-    let (mut x, mut z) = (GT::new(), GT::new_copy(&g));
+    let (mut x, mut z) = (Gt::new(), Gt::new_copy(&g));
     let mut i = BigNum::new_int(0);
     x.one();
     x.reduce();
@@ -86,8 +86,8 @@ pub fn baby_step_giant_step(h: &GT, g: &GT, bound: &BigNum) -> Option<BigInt> {
     // search for solution
     z.inverse();
     z = z.pow(&m);
-    x = GT::new_copy(&h);
-    let mut x_neg = GT::new_copy(&h);
+    x = Gt::new_copy(&h);
+    let mut x_neg = Gt::new_copy(&h);
     x_neg.inverse();
     i.zero();
     while BigNum::comp(&i, &m) <= 0 {
@@ -192,7 +192,7 @@ pub fn inner_product_result(x: &[BigInt], y: &[BigInt]) -> BigInt {
     let mut res = BigInt::zero();
     for i in 0..x.len() {
         let tmp =  &(x[i]) * &(y[i]);
-        res = res + tmp;
+        res += tmp;
     }
     res
 }
