@@ -6,10 +6,10 @@ This repository contains various functional encryption schemes and several machi
 Implementation of Few Selected Functional Encryption Schemes
 
 
-- **Scheme 1** [Simple Functional Encryption Schemes for Inner Products](https://link.springer.com/content/pdf/10.1007/978-3-662-46447-2_33.pdf) 
+- **Scheme 1 ** [Simple Functional Encryption Schemes for Inner Products](https://link.springer.com/content/pdf/10.1007/978-3-662-46447-2_33.pdf) 
     - - Implemented [here](src/simple_ip.rs)
 
-- **Scheme 2** [Decentralized Multi-Client Functional Encryption for Inner Product](https://eprint.iacr.org/2017/989.pdf) by *Chotard, Dufour Sans, Gay, Phan and Pointcheval*
+- **Scheme 2 ** [Decentralized Multi-Client Functional Encryption for Inner Product](https://eprint.iacr.org/2017/989.pdf) by *Chotard, Dufour Sans, Gay, Phan and Pointcheval*
     - Implemented [here](src/dmcfe_ip.rs) (Attribution: This is mostly a refactoring of [this repo](https://github.com/dev0x1/functional-encryption-schemes). We avoid re-inventing the wheel, but include it here for completeness.)
     
 - **Scheme 3** [Reading in the Dark: Classifying Encrypted Digits with Functional Encryption](https://eprint.iacr.org/2018/206.pdf)
@@ -85,21 +85,21 @@ cargo test test_neural_network -- --show-output
 ## Benchmark
 We give a benchmark of the implemented functional encryption schemes below. Experiments are performed on a Macbook Pro with 2.5 GHz Dual-Core Intel Core i7. All tests are run in a single thread. We run the experiments for vectors of length 1, 5, 10, and 20.
 
-Scheme 1 | 1 | 5 | 10 | 20 
+[Scheme 1: Inner product encryption](https://link.springer.com/content/pdf/10.1007/978-3-662-46447-2_33.pdf)  | 1 | 5 | 10 | 20 
 ------ | ------ | ------ | ------ | ------
 Encrypt | 56.1 ms | 153.3 ms | 273.9 ms | 545.7 ms
 Derive Key | 0.9 ms | 3.6 ms | 5.9 ms | 11.0 ms
 Decrypt | 436.5 ms | 730.5 ms | 1.1 s | 1.2 s
 
 
-Scheme 2 | 1 | 5 | 10 | 20 
+[Scheme 2: Distributed inner product encryption](https://eprint.iacr.org/2017/989.pdf) | 1 | 5 | 10 | 20 
 ------ | ------ | ------ | ------ | ------
 Encrypt | 50.4 ms | 277.9 ms | 600.1 ms |  1.1 s
 Derive Key | 186.4 ms | 663.6 ms | 1.2 s | 2.3 s
 Decrypt | 947.2 ms | 1.1 s | 1.2 s | 1.5 s
 
 
-Scheme 3 | 1 | 5 | 10 | 20 
+[Scheme 3: Quadratic polynomial encryption](https://eprint.iacr.org/2018/206.pdf) | 1 | 5 | 10 | 20 
 ------ | ------ | ------ | ------ | ------
 Encrypt | 320.7 ms | 1.5 s | 2.9 s |  5.6 s
 Derive Key | 56.1 ms | 66.0 ms | 101.8 ms | 244.4 ms
